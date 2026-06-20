@@ -1,0 +1,100 @@
+func (g *Game) handlePlayerMovement() {
+	movementVector := Vector{}
+	moving := false
+
+	playerCenter := VectorAdd(g.player.position, Vector{0.5, 0.5})
+
+	if ebiten.IsKeyPressed(ebiten.KeyD) {
+		g.player.facingDirection = Vector{X: 1}
+		newMovementVector := VectorAdd(movementVector, Vector{X: 1})
+		floored := VectorFloor(VectorAdd(VectorScale(newMovementVector, 0.8), g.player.position))
+
+		if floored.X >= 0 && floored.Y >= 0 && g.tileMap[int(floored.Y)][int(floored.X)] == nil {
+			movementVector = newMovementVector
+			moving = true
+		}
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyA) {
+		g.player.facingDirection = Vector{X: -1}
+		newMovementVector := VectorAdd(movementVector, Vector{X: -1})
+		floored := VectorFloor(VectorAdd(VectorScale(newMovementVector, 0.1), g.player.position))
+
+		if floored.X >= 0 && floored.Y >= 0 && g.tileMap[int(floored.Y)][int(floored.X)] == nil {
+			movementVector = newMovementVector
+			moving = true
+		}
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyW) {
+		g.player.facingDirection = Vector{Y: -1}
+		newMovementVector := VectorAdd(movementVector, Vector{Y: -1})
+		floored := VectorFloor(VectorAdd(VectorScale(newMovementVector, 0.1), g.player.position))
+
+		if floored.X >= 0 && floored.Y >= 0 && g.tileMap[int(floored.Y)][int(floored.X)] == nil {
+			movementVector = newMovementVector
+			moving = true
+		}
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyS) {
+		g.player.facingDirection = Vector{Y: 1}
+		newMovementVector := VectorAdd(movementVector, Vector{Y: 1})
+		floored := VectorFloor(VectorAdd(VectorScale(newMovementVector, 0.8), g.player.position))
+
+		if floored.X >= 0 && floored.Y >= 0 && g.tileMap[int(floored.Y)][int(floored.X)] == nil {
+			movementVector = newMovementVector
+			moving = true
+		}
+	}
+
+	if VectorMagnitude(movementVector) != 0 && moving {
+		normalisedVector := VectorScale(movementVector, (1 / VectorMagnitude(movementVector)))
+		position := VectorAdd(g.player.position, VectorScale(normalisedVector, g.player.walkSpeed))
+		tileX, tileY := int(position.X), int(position.Y)
+
+		if tileX < 0 || tileY < 0 {
+			return
+		}
+
+		width := 10.0 / 16
+		paddingL := 3.0 / 16
+
+		height := 13.0 / 16
+		paddingT := 3.0 / 16
+		playerRect := Rect{
+			Min: Vector{X: float64(position.X) + (paddingL), Y: float64(position.Y) + paddingT},
+			Max: Vector{X: float64(position.X) + paddingL + width, Y: float64(position.Y) + paddingT + height},
+		}
+
+		collision := false
+		for y := tileY - 1; y <= tileY+1; y++ {
+			for x := tileX - 1; x <= tileX+1; x++ {
+				// Check if coordinates are out of bounds
+				if x < 0 || y < 0 || y >= len(g.tileMap) || x >= len(g.tileMap[y]) {
+					collision = true
+					break
+				}
+
+				// Create rectangle for this tile
+				tileRect := Rect{
+					Min: Vector{X: float64(x), Y: float64(y)},
+					Max: Vector{X: float64(x) + 1, Y: float64(y) + 1},
+				}
+
+				// Check if player rectangle intersects with this tile rectangle
+				if RectsIntersect(playerRect, tileRect) && g.tileMap[y][x] != nil {
+					collision = true
+					break
+				}
+			}
+			if collision {
+				break
+			}
+		}
+
+		if !collision {
+			g.player.startLerpT = g.t
+
+			g.player.position = position
+		}
+
+	}
+}
