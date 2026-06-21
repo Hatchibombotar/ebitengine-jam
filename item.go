@@ -19,6 +19,21 @@ type Recipe struct {
 var itemData map[string]*ItemData
 var recipeData []*Recipe
 
+func dropItemSlot(g *Game, dropItemSlot int) {
+	slot := g.inventory[dropItemSlot]
+	if slot == nil {
+		return
+	}
+
+	g.CurrentSublevel().inGameItems = append(g.CurrentSublevel().inGameItems, &InGameItem{
+		X:        g.player.position.X + g.player.facingDirection.X*0.8,
+		Y:        g.player.position.Y + g.player.facingDirection.Y*0.8,
+		itemType: &Item{id: slot.id},
+	})
+
+	g.inventory[dropItemSlot] = nil
+}
+
 func init() {
 	itemData = map[string]*ItemData{
 		"tape": {

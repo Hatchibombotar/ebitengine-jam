@@ -15,8 +15,6 @@ type Game struct {
 	t      int
 	player *Character
 
-	tileMap Tilemap
-
 	uiContext  *superui.UIContext
 	hudUI      *superui.UIContainer
 	craftingUI *superui.UIContainer
@@ -24,30 +22,16 @@ type Game struct {
 	inventory    [5]*Item
 	selectedSlot int
 
-	inCraftingUi bool
-
+	inCraftingUi   bool
 	selectedRecipe int
 
-	inGameItems []*InGameItem
+	currentSublevelStr string
+
+	sublevels map[string]*Sublevel
 }
 
-func openCraftingUI(g *Game) {
-	g.selectedRecipe = -1
-}
-
-func dropItemSlot(g *Game, dropItemSlot int) {
-	slot := g.inventory[dropItemSlot]
-	if slot == nil {
-		return
-	}
-
-	g.inGameItems = append(g.inGameItems, &InGameItem{
-		X:        g.player.position.X + g.player.facingDirection.X*0.8,
-		Y:        g.player.position.Y + g.player.facingDirection.Y*0.8,
-		itemType: &Item{id: slot.id},
-	})
-
-	g.inventory[dropItemSlot] = nil
+func (g *Game) CurrentSublevel() *Sublevel {
+	return g.sublevels[g.currentSublevelStr]
 }
 
 func (g *Game) Update() error {
@@ -87,8 +71,9 @@ func (g *Game) Update() error {
 	cursorX, cursorY := ebiten.CursorPosition()
 	targetX, targetY := cursorX/16, cursorY/16
 
+	// handle item pickup
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-		for itemIndex, item := range g.inGameItems {
+		for itemIndex, item := range g.CurrentSublevel().inGameItems {
 			distance := VectorMagnitude(VectorSubtract(Vector{X: float64(item.X), Y: float64(item.Y)}, Vector{X: float64(targetX), Y: float64(targetY)}))
 			if distance < 1 {
 				replaceSlot := g.selectedSlot
@@ -111,7 +96,7 @@ func (g *Game) Update() error {
 
 				g.inventory[replaceSlot] = item.itemType
 
-				g.inGameItems = slices.Delete(g.inGameItems, itemIndex, itemIndex+1)
+				g.CurrentSublevel().inGameItems = slices.Delete(g.CurrentSublevel().inGameItems, itemIndex, itemIndex+1)
 
 				break
 			}
@@ -162,12 +147,12 @@ func (g *Game) handlePlayerMovement() {
 	}
 
 	adjacentVectorX := VectorFloor(VectorAdd(playerCenter, Vector{X: xSpeed + xOffset, Y: 0}))
-	if g.tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)] != nil {
+	if g.CurrentSublevel().tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)] != nil {
 		xSpeed = 0
 	}
 
 	adjacentVectorY := VectorFloor(VectorAdd(playerCenter, Vector{X: 0, Y: ySpeed + yOffset}))
-	if g.tileMap[int(adjacentVectorY.Y)][int(adjacentVectorY.X)] != nil {
+	if g.CurrentSublevel().tileMap[int(adjacentVectorY.Y)][int(adjacentVectorY.X)] != nil {
 		ySpeed = 0
 	}
 
@@ -199,7 +184,7 @@ func (g *Game) setTileToWall() {
 		cursorX, cursorY := ebiten.CursorPosition()
 		targetX, targetY := (cursorX / 16), (cursorY / 16)
 
-		g.tileMap[targetY][targetX] = &Tile{}
+		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{}
 	}
 }
 
@@ -208,7 +193,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	screen.DrawImage(test_bg, nil)
 	g.player.Draw(screen, g, 0, 0, false)
 
-	for _, inGameItem := range g.inGameItems {
+	for _, inGameItem := range g.CurrentSublevel().inGameItems {
 		itemData := itemData[inGameItem.itemType.id]
 
 		playerDistance := VectorMagnitude(
@@ -241,7 +226,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		op.GeoM.Translate(float64(targetScreenX), float64(targetScreenY))
 
 		overItem := false
-		for _, item := range g.inGameItems {
+		for _, item := range g.CurrentSublevel().inGameItems {
 			distance := VectorMagnitude(VectorSubtract(Vector{X: float64(item.X), Y: float64(item.Y)}, Vector{X: float64(targetX), Y: float64(targetY)}))
 			if distance < 1 {
 				overItem = true
@@ -255,7 +240,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	for y, row := range g.tileMap {
+	for y, row := range g.CurrentSublevel().tileMap {
 		for x, tile := range row {
 			if tile == nil {
 				continue
@@ -383,7 +368,6 @@ func main() {
 	ebiten.SetWindowSize(640, 480)
 	ebiten.SetWindowTitle("Hello, World!")
 	g := &Game{
-		tileMap:   [15][20]*Tile{},
 		t:         0,
 		uiContext: superui.NewUIContext(),
 
@@ -392,11 +376,8 @@ func main() {
 			{id: "tape"},
 			{id: "tape"},
 		},
-
-		inGameItems: []*InGameItem{
-			{itemType: &Item{id: "tape"}, X: 10, Y: 3},
-			{itemType: &Item{id: "tape"}, X: 5, Y: 6},
-		},
+		currentSublevelStr: "sewer",
+		sublevels:          createSublevels(),
 	}
 
 	g.hudUI = createHudUi(g.uiContext, g)
