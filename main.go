@@ -25,13 +25,13 @@ type Game struct {
 	inCraftingUi   bool
 	selectedRecipe int
 
-	currentSublevelStr string
+	sublevel string
 
 	sublevels map[string]*Sublevel
 }
 
 func (g *Game) CurrentSublevel() *Sublevel {
-	return g.sublevels[g.currentSublevelStr]
+	return g.sublevels[g.sublevel]
 }
 
 func (g *Game) Update() error {
@@ -107,7 +107,22 @@ func (g *Game) Update() error {
 		dropItemSlot(g, g.selectedSlot)
 	}
 
+	g.ItemUseEvents()
+
 	return nil
+}
+
+func (g *Game) ItemUseEvents() {
+	heldItemId := g.inventory[g.selectedSlot].id
+
+	if heldItemId == "box" && inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
+		cursorX, cursorY := ebiten.CursorPosition()
+		targetX, targetY := (cursorX / 16), (cursorY / 16)
+
+		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+			Type: "box",
+		}
+	}
 }
 
 func (g *Game) handlePlayerMovement() {
@@ -147,12 +162,12 @@ func (g *Game) handlePlayerMovement() {
 	}
 
 	adjacentVectorX := VectorFloor(VectorAdd(playerCenter, Vector{X: xSpeed + xOffset, Y: 0}))
-	if g.CurrentSublevel().tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)] != nil {
+	if TileIsSolid(g.CurrentSublevel().tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)]) {
 		xSpeed = 0
 	}
 
 	adjacentVectorY := VectorFloor(VectorAdd(playerCenter, Vector{X: 0, Y: ySpeed + yOffset}))
-	if g.CurrentSublevel().tileMap[int(adjacentVectorY.Y)][int(adjacentVectorY.X)] != nil {
+	if TileIsSolid(g.CurrentSublevel().tileMap[int(adjacentVectorY.Y)][int(adjacentVectorY.X)]) {
 		ySpeed = 0
 	}
 
@@ -184,14 +199,46 @@ func (g *Game) setTileToWall() {
 		cursorX, cursorY := ebiten.CursorPosition()
 		targetX, targetY := (cursorX / 16), (cursorY / 16)
 
-		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{}
+		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+			Type: "wall",
+		}
 	}
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, "Hello, World!")
-	screen.DrawImage(test_bg, nil)
-	g.player.Draw(screen, g, 0, 0, false)
+
+	switch g.sublevel {
+	case "sewer":
+		screen.DrawImage(test_bg, nil)
+	case "factory":
+		screen.DrawImage(factory_base, nil)
+	}
+
+	for y, row := range g.CurrentSublevel().tileMap {
+		for x, tile := range row {
+			if tile == nil {
+				continue
+			}
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(float64(x*16), float64(y*16))
+
+			switch tile.Type {
+			case "box":
+				screen.DrawImage(item_box, op)
+			}
+		}
+	}
+
+	playerX, playerY := int(g.player.position.X+0.5), int(g.player.position.Y+0.5)
+
+	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
+
+	if tileImOn != nil && tileImOn.Type == "box" {
+		g.player.Draw(screen, g, 0, -6, false)
+	} else {
+		g.player.Draw(screen, g, 0, 0, false)
+	}
 
 	for _, inGameItem := range g.CurrentSublevel().inGameItems {
 		itemData := itemData[inGameItem.itemType.id]
@@ -240,6 +287,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	// debug draw
 	for y, row := range g.CurrentSublevel().tileMap {
 		for x, tile := range row {
 			if tile == nil {
@@ -248,7 +296,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			op := &ebiten.DrawImageOptions{}
 			op.GeoM.Translate(float64(x*16), float64(y*16))
 
-			screen.DrawImage(debug_wall, op)
+			switch tile.Type {
+			case "wall":
+				screen.DrawImage(debug_wall, op)
+			}
 		}
 	}
 
@@ -375,9 +426,10 @@ func main() {
 			{id: "tape"},
 			{id: "tape"},
 			{id: "tape"},
+			{id: "box"},
 		},
-		currentSublevelStr: "sewer",
-		sublevels:          createSublevels(),
+		sublevel:  "sewer",
+		sublevels: createSublevels(),
 	}
 
 	g.hudUI = createHudUi(g.uiContext, g)

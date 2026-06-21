@@ -24,5 +24,6 @@ var hotbar_slot_unselected = LoadImageFromPath("assets/ui/hotbar_slot_unselected
 
 var item_tape = LoadImageFromPath("assets/items/tape.png")
 var item_bundle = LoadImageFromPath("assets/items/bundle.png")
+var item_box = LoadImageFromPath("assets/box.png")
 var recipe_slot = LoadImageFromPath("assets/ui/recipe_slot.png")
 var recipe_slot_active = LoadImageFromPath("assets/ui/recipe_slot_active.png")

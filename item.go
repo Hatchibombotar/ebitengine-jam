@@ -44,6 +44,10 @@ func init() {
 			name:  "Bundle",
 			image: item_bundle,
 		},
+		"box": {
+			name:  "Box",
+			image: item_box,
+		},
 		"holy_grail": {
 			name:  "Holy Grain",
 			image: target,
