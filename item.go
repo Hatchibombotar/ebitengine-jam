@@ -52,6 +52,10 @@ func init() {
 			name:  "Holy Grain",
 			image: target,
 		},
+		"circuit_board_finished": {
+			name:  "Circuit Board (finished)",
+			image: circuit_board_finished,
+		},
 	}
 
 	recipeData = []*Recipe{

@@ -2,6 +2,7 @@ package main
 
 import (
 	"hatchi/disconnect/superui"
+	"image"
 	"log"
 	"math"
 	"slices"
@@ -10,6 +11,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
+
+const CONVEYOR_SPEED = 2.0
 
 type Game struct {
 	t      int
@@ -107,21 +110,46 @@ func (g *Game) Update() error {
 		dropItemSlot(g, g.selectedSlot)
 	}
 
-	g.ItemUseEvents()
+	playerX, playerY := int(g.player.position.X+0.5), int(g.player.position.Y+0.5)
+
+	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
+
+	if tileImOn != nil && tileImOn.Type == "box" {
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
+			g.sublevel = "factory"
+		}
+	} else {
+		g.ItemUseEvents()
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyF9) {
+		PrintSublevel(g)
+	}
+
+	UpdateConveyors(g)
+
+	for _, e := range g.CurrentSublevel().Enemies {
+		e.Move(g.CurrentSublevel(), (g.player.position.X), (g.player.position.Y))
+	}
 
 	return nil
 }
 
 func (g *Game) ItemUseEvents() {
-	heldItemId := g.inventory[g.selectedSlot].id
+	heldItem := g.inventory[g.selectedSlot]
+	if heldItem == nil {
+		return
+	}
 
-	if heldItemId == "box" && inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
+	if heldItem.id == "box" && inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
 		cursorX, cursorY := ebiten.CursorPosition()
 		targetX, targetY := (cursorX / 16), (cursorY / 16)
 
 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
 			Type: "box",
 		}
+
+		g.inventory[g.selectedSlot] = nil
 	}
 }
 
@@ -195,13 +223,38 @@ func (g *Game) handlePlayerMovement() {
 }
 
 func (g *Game) setTileToWall() {
+	cursorX, cursorY := ebiten.CursorPosition()
+	targetX, targetY := (cursorX / 16), (cursorY / 16)
 	if inpututil.IsKeyJustPressed(ebiten.KeyP) {
-		cursorX, cursorY := ebiten.CursorPosition()
-		targetX, targetY := (cursorX / 16), (cursorY / 16)
-
 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
 			Type: "wall",
 		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.Key0) {
+		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+			Type: "conveyor_left",
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.Key9) {
+		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+			Type: "conveyor_down",
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.Key8) {
+		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+			Type: "machine",
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.Key7) {
+		g.CurrentSublevel().conveyorItems = append(g.CurrentSublevel().conveyorItems,
+			&ConveyorItem{
+				X: float64(cursorX / 16),
+				Y: float64(cursorY / 16),
+				itemType: &Item{
+					id: "circuit_board_finished",
+				},
+			},
+		)
 	}
 }
 
@@ -226,6 +279,23 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			switch tile.Type {
 			case "box":
 				screen.DrawImage(item_box, op)
+			case "conveyor_left":
+				// screen.DrawImage(conveyor_left, op)
+				t := CONVEYOR_SPEED * (g.t / 10)
+				screen.DrawImage(
+					conveyor_left_flipbook.SubImage(image.Rect(0, (t%4)*16, 16, 16+((t%4)*16))).(*ebiten.Image),
+					op,
+				)
+			case "conveyor_down":
+				// screen.DrawImage(conveyor_down, op)
+				t := CONVEYOR_SPEED * (g.t / 10)
+				screen.DrawImage(
+					conveyor_down_flipbook.SubImage(image.Rect(0, (t%4)*16, 16, 16+((t%4)*16))).(*ebiten.Image),
+					op,
+				)
+			case "machine":
+				op.GeoM.Translate(0, -6)
+				screen.DrawImage(machine, op)
 			}
 		}
 	}
@@ -234,7 +304,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
 
-	if tileImOn != nil && tileImOn.Type == "box" {
+	playerIsAccended := TileIsAccended(tileImOn)
+
+	if playerIsAccended {
 		g.player.Draw(screen, g, 0, -6, false)
 	} else {
 		g.player.Draw(screen, g, 0, 0, false)
@@ -260,9 +332,71 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(itemData.image, op)
 	}
 
-	screen.DrawImage(vignette, nil)
+	for _, inGameItem := range g.CurrentSublevel().conveyorItems {
+		itemData := itemData[inGameItem.itemType.id]
+
+		playerDistance := VectorMagnitude(
+			VectorSubtract(
+				g.player.position,
+				Vector{X: float64(inGameItem.X), Y: float64(inGameItem.Y)},
+			),
+		)
+
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Translate(float64(inGameItem.X)*16, float64(inGameItem.Y)*16)
+
+		if playerDistance < 1.1 {
+			op.GeoM.Translate(0, math.Sin(float64(g.t)*0.5)*1)
+		}
+
+		screen.DrawImage(itemData.image, op)
+	}
+
+	for y, row := range g.CurrentSublevel().tileMap {
+		for x, tile := range row {
+			if tile == nil {
+				continue
+			}
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Translate(float64(x*16), float64(y*16))
+
+			switch tile.Type {
+			case "machine":
+				op.GeoM.Translate(0, -6)
+				screen.DrawImage(machine, op)
+			}
+		}
+	}
 
 	cursorX, cursorY := ebiten.CursorPosition()
+
+	// debug draw
+	if ebiten.IsKeyPressed(ebiten.KeyF8) {
+		for y, row := range g.CurrentSublevel().tileMap {
+			for x, tile := range row {
+				if tile == nil {
+					continue
+				}
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Translate(float64(x*16), float64(y*16))
+
+				switch tile.Type {
+				case "wall":
+					screen.DrawImage(debug_wall, op)
+				}
+			}
+		}
+	}
+
+	if tileImOn != nil && tileImOn.Type == "box" {
+		screen.DrawImage(vents, nil)
+	}
+
+	if g.sublevel == "factory" {
+		screen.DrawImage(right_wall_conveyor_overlay, nil)
+		screen.DrawImage(top_wall_conveyor_overlay, nil)
+		screen.DrawImage(left_wall_conveyor_overlay, nil)
+	}
 
 	if !g.uiContext.IsHovered() {
 		targetX, targetY := cursorX/16, cursorY/16
@@ -287,24 +421,18 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	// debug draw
-	for y, row := range g.CurrentSublevel().tileMap {
-		for x, tile := range row {
-			if tile == nil {
-				continue
-			}
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Translate(float64(x*16), float64(y*16))
-
-			switch tile.Type {
-			case "wall":
-				screen.DrawImage(debug_wall, op)
-			}
-		}
+	if g.sublevel == "sewer" {
+		screen.DrawImage(vignette, nil)
+	} else {
+		screen.DrawImage(vignette_mild, nil)
 	}
 
 	if g.inCraftingUi {
 		g.craftingUI.Draw(screen)
+	}
+
+	for _, e := range g.CurrentSublevel().Enemies {
+		e.Draw(screen, g, 0, 0, false)
 	}
 
 	g.hudUI.Draw(screen)
@@ -312,107 +440,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
 	return 320, 240
-}
-
-func createHudUi(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
-	ui := superui.NewUI(uiContext)
-
-	craftingButton := superui.NewBoxWidget(
-		&superui.BoxWidgetOps{
-			Padding:      superui.Spacing{Top: 4, Left: 4, Right: 4, Bottom: 4},
-			PositionMode: superui.PositionFixed,
-			X:            8,
-			Y:            8,
-			CursorShape:  ebiten.CursorShapePointer,
-			IsFocusable:  true,
-
-			OnDraw: func(screen *ebiten.Image, widget superui.GenericWidget, root *superui.UIContainer) {
-				if g.inCraftingUi {
-					superui.FillNineSlice(screen, widget, button_nine_slice_inverted, 3)
-				} else {
-					superui.FillNineSlice(screen, widget, button_nine_slice, 3)
-				}
-			},
-
-			OnInputUpdate: func(w superui.GenericWidget, root *superui.UIContainer) {
-				if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.IsHovered(w) {
-					g.inCraftingUi = !g.inCraftingUi
-				}
-			},
-		},
-		superui.NewBoxWidget(
-			&superui.BoxWidgetOps{
-				Width:      16,
-				Height:     16,
-				WidthMode:  superui.SizeFixed,
-				HeightMode: superui.SizeFixed,
-
-				OnDraw: func(screen *ebiten.Image, widget superui.GenericWidget, root *superui.UIContainer) {
-					op := &ebiten.DrawImageOptions{}
-					op.GeoM.Translate(float64(widget.GetResultX()), float64(widget.GetResultY()))
-					screen.DrawImage(hammer, op)
-				},
-			},
-		),
-	)
-
-	hotbar := superui.NewBoxWidget(
-		&superui.BoxWidgetOps{
-			PositionMode: superui.PositionFixed,
-			X:            8,
-			Y:            240 - 8 - 24,
-			CursorShape:  ebiten.CursorShapePointer,
-			IsFocusable:  true,
-
-			LayoutDirection: superui.LayoutRow,
-			Gap:             2,
-		},
-	)
-
-	for slotIndex := range 5 {
-		slot := superui.NewBoxWidget(
-			&superui.BoxWidgetOps{
-				Width:      24,
-				Height:     24,
-				WidthMode:  superui.SizeFixed,
-				HeightMode: superui.SizeFixed,
-
-				IsFocusable: true,
-
-				OnDraw: func(screen *ebiten.Image, widget superui.GenericWidget, root *superui.UIContainer) {
-					op := &ebiten.DrawImageOptions{}
-					op.GeoM.Translate(float64(widget.GetResultX()), float64(widget.GetResultY()))
-					if g.selectedSlot == slotIndex {
-						screen.DrawImage(hotbar_slot, op)
-					} else {
-						screen.DrawImage(hotbar_slot_unselected, op)
-					}
-
-					inventorySlot := g.inventory[slotIndex]
-					if inventorySlot != nil {
-						img := itemData[inventorySlot.id].image
-						op := &ebiten.DrawImageOptions{}
-						op.GeoM.Translate(float64(widget.GetResultX()+4), float64(widget.GetResultY()+4))
-						screen.DrawImage(img, op)
-					}
-				},
-
-				OnInputUpdate: func(w superui.GenericWidget, root *superui.UIContainer) {
-					if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.HasFocusOn(w) {
-						g.selectedSlot = slotIndex
-					} else if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton2) && root.HasFocusOn(w) {
-						dropItemSlot(g, g.selectedSlot)
-					}
-				},
-			},
-		)
-		hotbar.AddChild(slot)
-	}
-
-	ui.AddChild(craftingButton)
-	ui.AddChild(hotbar)
-
-	return ui
 }
 
 func main() {
@@ -440,6 +467,7 @@ func main() {
 		startLerpT:      -1000,
 		facingDirection: Vector{1, 0},
 		walkSpeed:       .11,
+		speedMultiplier: 1,
 	}
 	g.player = p
 

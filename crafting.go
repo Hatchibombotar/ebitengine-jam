@@ -9,6 +9,10 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
+func openCraftingUI(g *Game) {
+	g.selectedRecipe = -1
+}
+
 func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 	ui := superui.NewUI(uiContext)
 
@@ -79,7 +83,7 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 				},
 
 				OnInputUpdate: func(w superui.GenericWidget, root *superui.UIContainer) {
-					if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.HasFocusOn(w) {
+					if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.IsHovered(w) {
 						g.selectedRecipe = recipeIndex
 					}
 				},
@@ -206,7 +210,7 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 							IsFocusable: true,
 							OnInputUpdate: func(w superui.GenericWidget, root *superui.UIContainer) {
 
-								if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.HasFocusOn(w) {
+								if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.IsHovered(w) {
 									craftRecipe(g, g.selectedRecipe)
 								}
 							},
