@@ -7,8 +7,17 @@ type Item struct {
 }
 
 type ItemData struct {
-	name  string
-	image *ebiten.Image
+	name     string
+	image    *ebiten.Image
+	heldItem *ebiten.Image
+}
+
+func GetHeldItemSprite(i *ItemData) *ebiten.Image {
+	if i.heldItem != nil {
+		return i.heldItem
+	} else {
+		return i.image
+	}
 }
 
 type Recipe struct {
@@ -36,9 +45,21 @@ func dropItemSlot(g *Game, dropItemSlot int) {
 
 func init() {
 	itemData = map[string]*ItemData{
-		"tape": {
-			name:  "Tape",
-			image: item_tape,
+		"string": {
+			name:  "String",
+			image: item_string,
+		},
+		"rod": {
+			name:  "Rod",
+			image: item_rod,
+		},
+		"screwdriver": {
+			name:  "Screwdriver",
+			image: item_screwdriver,
+		},
+		"hammer": {
+			name:  "Hammer",
+			image: item_hammer,
 		},
 		"bundle": {
 			name:  "Bundle",
@@ -53,35 +74,84 @@ func init() {
 			image: target,
 		},
 		"circuit_board_finished": {
-			name:  "Circuit Board (finished)",
+			name:  "Circuit Board",
 			image: circuit_board_finished,
+		},
+		"circuit_board_programmed": {
+			name:  "Circuit Board (programmed)",
+			image: circuit_board_finished,
+		},
+		"copper_sheet": {
+			name:  "Copper Sheet",
+			image: copper_sheet,
+		},
+		"metal_sheet": {
+			name:     "metal Sheet",
+			image:    metal_sheet,
+			heldItem: metal_sheet_held,
+		},
+		"resin_board": {
+			name:  "Resin Sheet",
+			image: resin_board,
+		},
+		"uncut_circuit_board": {
+			name:  "Raw Circuit Board",
+			image: circuit_board_uncut,
+		},
+		"battery": {
+			name:  "Battery",
+			image: battery,
+		},
+		"led": {
+			name:  "LED",
+			image: led,
+		},
+		"chip": {
+			name:  "Chip",
+			image: chip,
+		},
+		"antenna": {
+			name:  "Antenna",
+			image: antenna,
+		},
+		"casing": {
+			name:  "Unsealed Casing",
+			image: casing,
+		},
+		"final_chip": {
+			name:  "Unsealed final_chip",
+			image: final_chip,
 		},
 	}
 
 	recipeData = []*Recipe{
 		{
-			result:      "bundle",
-			ingredients: []string{"tape", "tape"},
+			result:      "screwdriver",
+			ingredients: []string{"string", "rod"},
+		},
+		{
+			result:      "hammer",
+			ingredients: []string{"string", "rod", "metal_sheet"},
 		},
 		{
 			result:      "bundle",
-			ingredients: []string{"tape", "bundle"},
+			ingredients: []string{"string", "bundle"},
 		},
 		{
-			result:      "tape",
+			result:      "string",
 			ingredients: []string{"bundle", "bundle"},
 		},
 		{
-			result:      "tape",
-			ingredients: []string{"tape", "tape", "tape"},
+			result:      "string",
+			ingredients: []string{"string", "string", "string"},
 		},
 		{
-			result:      "tape",
-			ingredients: []string{"tape", "tape"},
+			result:      "string",
+			ingredients: []string{"string", "string"},
 		},
 		{
-			result:      "tape",
-			ingredients: []string{"tape", "holy_grail"},
+			result:      "string",
+			ingredients: []string{"string", "holy_grail"},
 		},
 	}
 }

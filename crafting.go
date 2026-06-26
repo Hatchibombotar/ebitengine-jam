@@ -79,7 +79,7 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 					} else {
 						screen.DrawImage(recipe_slot, op)
 					}
-					screen.DrawImage(item.image, op)
+					screen.DrawImage(GetHeldItemSprite(item), op)
 				},
 
 				OnInputUpdate: func(w superui.GenericWidget, root *superui.UIContainer) {
@@ -183,7 +183,7 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 												} else {
 													screen.DrawImage(recipe_slot, op)
 												}
-												screen.DrawImage(itemData[ingredient].image, op)
+												screen.DrawImage(GetHeldItemSprite(itemData[ingredient]), op)
 											},
 										},
 									),

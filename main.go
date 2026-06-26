@@ -1,15 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"hatchi/disconnect/superui"
 	"image"
+	"image/color"
 	"log"
 	"math"
 	"slices"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/text/v2"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const CONVEYOR_SPEED = 2.0
@@ -31,15 +34,48 @@ type Game struct {
 	sublevel string
 
 	sublevels map[string]*Sublevel
+
+	// Relative to grid
+	targetX, targetY float64
+
+	selectionName    string
+	selectionInRange bool
+
+	day int
 }
 
 func (g *Game) CurrentSublevel() *Sublevel {
-	return g.sublevels[g.sublevel]
+	sublevel, ok := g.sublevels[g.sublevel]
+	if !ok {
+		panic(fmt.Sprint("sublevel doesn't exist.", g.sublevel))
+	}
+	return sublevel
 }
+
+const ITEM_REACH_RANGE = 1.0
 
 func (g *Game) Update() error {
 	g.t += 1
 
+	if g.CurrentSublevel().Spawners != nil {
+		for _, spawner := range g.CurrentSublevel().Spawners {
+			if g.t%(CONVEYOR_SPEED*16*4) != 0 {
+				continue
+			}
+
+			g.CurrentSublevel().conveyorItems = append(g.CurrentSublevel().conveyorItems,
+				&ConveyorItem{
+					X: float64(spawner.X),
+					Y: float64(spawner.Y),
+					itemType: &Item{
+						id: spawner.item,
+					},
+				},
+			)
+		}
+	}
+
+	// Craft
 	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
 		g.inCraftingUi = !g.inCraftingUi
 		if g.inCraftingUi {
@@ -73,36 +109,98 @@ func (g *Game) Update() error {
 
 	cursorX, cursorY := ebiten.CursorPosition()
 	targetX, targetY := cursorX/16, cursorY/16
+	gridCursorX, gridCursorY := float64(cursorX)/16, float64(cursorY)/16
 
-	// handle item pickup
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-		for itemIndex, item := range g.CurrentSublevel().inGameItems {
-			distance := VectorMagnitude(VectorSubtract(Vector{X: float64(item.X), Y: float64(item.Y)}, Vector{X: float64(targetX), Y: float64(targetY)}))
-			if distance < 1 {
-				replaceSlot := g.selectedSlot
-				if g.inventory[g.selectedSlot] == nil {
-					replaceSlot = g.selectedSlot
-				} else {
-					emptySlot := false
-					for i, slot := range g.inventory {
-						if slot == nil {
-							replaceSlot = i
-							emptySlot = true
-							break
-						}
-					}
-					if !emptySlot {
-						dropItemSlot(g, g.selectedSlot)
-						replaceSlot = g.selectedSlot
-					}
+	playerX, playerY := int(g.player.position.X+0.5), int(g.player.position.Y+0.5)
+
+	cursorSelectionTile := GetTileFromTileMap(g.CurrentSublevel().tileMap, targetX, targetY)
+	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
+
+	clickUseType := ""
+
+	var selectedConveyorItem *ConveyorItem
+	var selectedConveyorItemIndex int
+	for index, conveyorItem := range g.CurrentSublevel().conveyorItems {
+
+		itemCenterX, itemCenterY := conveyorItem.X+0.5, conveyorItem.Y+0.5
+
+		distance := math.Sqrt(math.Pow(itemCenterX-gridCursorX, 2) + math.Pow(itemCenterY-gridCursorY, 2))
+
+		if distance < 0.5 {
+			clickUseType = "conveyor_item"
+			selectedConveyorItem = conveyorItem
+			selectedConveyorItemIndex = index
+			break
+		}
+	}
+
+	var selectedItem *InGameItem
+	var selectedItemIndex int
+	for index, item := range g.CurrentSublevel().inGameItems {
+
+		itemCenterX, itemCenterY := item.X+0.5, item.Y+0.5
+
+		distance := math.Sqrt(math.Pow(itemCenterX-gridCursorX, 2) + math.Pow(itemCenterY-gridCursorY, 2))
+
+		if distance < 0.5 {
+			clickUseType = "item"
+			selectedItem = item
+			selectedItemIndex = index
+			break
+		}
+	}
+
+	if cursorSelectionTile != nil && cursorSelectionTile.Type == "vent_down" {
+		clickUseType = "vent_down"
+	}
+	if cursorSelectionTile != nil && cursorSelectionTile.Type == "box" {
+		clickUseType = "box"
+	}
+
+	switch clickUseType {
+	case "conveyor_item":
+		g.selectionName = itemData[selectedConveyorItem.itemType.id].name
+		g.targetX, g.targetY = selectedConveyorItem.X, selectedConveyorItem.Y
+	case "item":
+		g.selectionName = itemData[selectedItem.itemType.id].name
+		g.targetX, g.targetY = selectedItem.X, selectedItem.Y
+	case "vent_down":
+		g.selectionName = "Vent"
+		g.targetX, g.targetY = float64(cursorX/16), float64(cursorY/16)
+	case "box":
+		g.selectionName = "Box"
+		g.targetX, g.targetY = float64(cursorX/16), float64(cursorY/16)
+	default:
+		g.selectionName = ""
+		g.targetX, g.targetY = float64(cursorX/16), float64(cursorY/16)
+	}
+
+	distanceBetweenPlayerAndTarget := math.Sqrt(math.Pow(g.targetX-g.player.position.X, 2) + math.Pow(g.targetY-g.player.position.Y, 2))
+
+	g.selectionInRange = distanceBetweenPlayerAndTarget < 3
+	if clickUseType == "vent_down" {
+		g.selectionInRange = distanceBetweenPlayerAndTarget < 1
+	}
+
+	hasSelection := g.selectionName != ""
+
+	if hasSelection && g.selectionInRange && inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
+		switch clickUseType {
+		case "conveyor_item":
+			replaceSlot := GetOrFreeSlotForItemInHotbar(g)
+			g.inventory[replaceSlot] = selectedConveyorItem.itemType
+			g.CurrentSublevel().conveyorItems = slices.Delete(g.CurrentSublevel().conveyorItems, selectedConveyorItemIndex, selectedConveyorItemIndex+1)
+		case "item":
+			replaceSlot := GetOrFreeSlotForItemInHotbar(g)
+			g.inventory[replaceSlot] = selectedItem.itemType
+			g.CurrentSublevel().inGameItems = slices.Delete(g.CurrentSublevel().inGameItems, selectedItemIndex, selectedItemIndex+1)
+		case "vent_down":
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
+				if g.CurrentSublevel().adjacentSpaces.Down != "" {
+					g.sublevel = g.CurrentSublevel().adjacentSpaces.Down
 				}
-
-				g.inventory[replaceSlot] = item.itemType
-
-				g.CurrentSublevel().inGameItems = slices.Delete(g.CurrentSublevel().inGameItems, itemIndex, itemIndex+1)
-
-				break
 			}
+		case "box":
 		}
 	}
 
@@ -110,15 +208,15 @@ func (g *Game) Update() error {
 		dropItemSlot(g, g.selectedSlot)
 	}
 
-	playerX, playerY := int(g.player.position.X+0.5), int(g.player.position.Y+0.5)
-
-	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
-
 	if tileImOn != nil && tileImOn.Type == "box" {
 		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-			g.sublevel = "factory"
+			if g.CurrentSublevel().adjacentSpaces.Up != "" {
+				g.sublevel = g.CurrentSublevel().adjacentSpaces.Up
+			}
 		}
-	} else {
+	}
+
+	if hasSelection == false {
 		g.ItemUseEvents()
 	}
 
@@ -190,11 +288,38 @@ func (g *Game) handlePlayerMovement() {
 	}
 
 	adjacentVectorX := VectorFloor(VectorAdd(playerCenter, Vector{X: xSpeed + xOffset, Y: 0}))
-	if TileIsSolid(g.CurrentSublevel().tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)]) {
-		xSpeed = 0
+	if adjacentVectorX.X < 0 {
+		if g.CurrentSublevel().adjacentSpaces.West != "" {
+			g.player.position.X = 19
+			g.sublevel = g.CurrentSublevel().adjacentSpaces.West
+		}
+		return
+	} else if adjacentVectorX.X > 19 {
+		if g.CurrentSublevel().adjacentSpaces.East != "" {
+			g.player.position.X = 0
+			g.sublevel = g.CurrentSublevel().adjacentSpaces.East
+		}
+		return
 	}
 
 	adjacentVectorY := VectorFloor(VectorAdd(playerCenter, Vector{X: 0, Y: ySpeed + yOffset}))
+	if adjacentVectorY.Y < 0 {
+		if g.CurrentSublevel().adjacentSpaces.North != "" {
+			g.player.position.Y = 14
+			g.sublevel = g.CurrentSublevel().adjacentSpaces.North
+		}
+		return
+	} else if adjacentVectorY.Y > 14 {
+		if g.CurrentSublevel().adjacentSpaces.South != "" {
+			g.player.position.Y = 0
+			g.sublevel = g.CurrentSublevel().adjacentSpaces.South
+		}
+		return
+	}
+
+	if TileIsSolid(g.CurrentSublevel().tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)]) {
+		xSpeed = 0
+	}
 	if TileIsSolid(g.CurrentSublevel().tileMap[int(adjacentVectorY.Y)][int(adjacentVectorY.X)]) {
 		ySpeed = 0
 	}
@@ -225,24 +350,33 @@ func (g *Game) handlePlayerMovement() {
 func (g *Game) setTileToWall() {
 	cursorX, cursorY := ebiten.CursorPosition()
 	targetX, targetY := (cursorX / 16), (cursorY / 16)
-	if inpututil.IsKeyJustPressed(ebiten.KeyP) {
+
+	if ebiten.IsKeyPressed(ebiten.KeyL) {
+		g.CurrentSublevel().tileMap[targetY][targetX] = nil
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyP) {
 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
 			Type: "wall",
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.Key0) {
+	if ebiten.IsKeyPressed(ebiten.Key0) {
 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
 			Type: "conveyor_left",
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.Key9) {
+	if ebiten.IsKeyPressed(ebiten.Key9) {
 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
 			Type: "conveyor_down",
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.Key8) {
+	if ebiten.IsKeyPressed(ebiten.Key8) {
 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
 			Type: "machine",
+		}
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyV) {
+		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+			Type: "vent_down",
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.Key7) {
@@ -251,7 +385,18 @@ func (g *Game) setTileToWall() {
 				X: float64(cursorX / 16),
 				Y: float64(cursorY / 16),
 				itemType: &Item{
-					id: "circuit_board_finished",
+					id: "copper_sheet",
+				},
+			},
+		)
+	}
+	if inpututil.IsKeyJustPressed(ebiten.Key6) {
+		g.CurrentSublevel().conveyorItems = append(g.CurrentSublevel().conveyorItems,
+			&ConveyorItem{
+				X: float64(cursorX / 16),
+				Y: float64(cursorY / 16),
+				itemType: &Item{
+					id: "resin_board",
 				},
 			},
 		)
@@ -259,14 +404,9 @@ func (g *Game) setTileToWall() {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	ebitenutil.DebugPrint(screen, "Hello, World!")
-
-	switch g.sublevel {
-	case "sewer":
-		screen.DrawImage(test_bg, nil)
-	case "factory":
-		screen.DrawImage(factory_base, nil)
-	}
+	screen.DrawImage(
+		g.CurrentSublevel().Background, nil,
+	)
 
 	for y, row := range g.CurrentSublevel().tileMap {
 		for x, tile := range row {
@@ -296,6 +436,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			case "machine":
 				op.GeoM.Translate(0, -6)
 				screen.DrawImage(machine, op)
+			case "vent_down":
+				screen.DrawImage(vent, op)
 			}
 		}
 	}
@@ -305,6 +447,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
 
 	playerIsAccended := TileIsAccended(tileImOn)
+
+	if tileImOn != nil && tileImOn.Type == "conveyor_left" && g.t%10 == 0 {
+		g.player.position.X -= CONVEYOR_SPEED / 16.0
+	}
+
+	if tileImOn != nil && tileImOn.Type == "conveyor_down" && g.t%10 == 0 {
+		g.player.position.Y += CONVEYOR_SPEED / 16.0
+	}
 
 	if playerIsAccended {
 		g.player.Draw(screen, g, 0, -6, false)
@@ -334,6 +484,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	for _, inGameItem := range g.CurrentSublevel().conveyorItems {
 		itemData := itemData[inGameItem.itemType.id]
+		if itemData == nil {
+			continue
+		}
 
 		playerDistance := VectorMagnitude(
 			VectorSubtract(
@@ -368,7 +521,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	cursorX, cursorY := ebiten.CursorPosition()
+	if g.CurrentSublevel().Overlay != nil {
+		screen.DrawImage(g.CurrentSublevel().Overlay, nil)
+	}
+
+	// cursorX, cursorY := ebiten.CursorPosition()
 
 	// debug draw
 	if ebiten.IsKeyPressed(ebiten.KeyF8) {
@@ -392,50 +549,81 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(vents, nil)
 	}
 
-	if g.sublevel == "factory" {
-		screen.DrawImage(right_wall_conveyor_overlay, nil)
-		screen.DrawImage(top_wall_conveyor_overlay, nil)
-		screen.DrawImage(left_wall_conveyor_overlay, nil)
+	for _, e := range g.CurrentSublevel().Enemies {
+		e.Draw(screen, g, 0, 0, false)
 	}
 
 	if !g.uiContext.IsHovered() {
-		targetX, targetY := cursorX/16, cursorY/16
-
-		targetScreenX, targetScreenY := (targetX)*16, (targetY)*16
-
 		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(targetScreenX), float64(targetScreenY))
+		op.GeoM.Translate((g.targetX)*16, (g.targetY)*16)
 
-		overItem := false
-		for _, item := range g.CurrentSublevel().inGameItems {
-			distance := VectorMagnitude(VectorSubtract(Vector{X: float64(item.X), Y: float64(item.Y)}, Vector{X: float64(targetX), Y: float64(targetY)}))
-			if distance < 1 {
-				overItem = true
+		if g.selectionName != "" {
+			if g.selectionInRange {
+				screen.DrawImage(target_green, op)
+			} else {
+				screen.DrawImage(target_red, op)
 			}
-		}
-
-		if overItem {
-			screen.DrawImage(target_green, op)
 		} else {
 			screen.DrawImage(target, op)
 		}
 	}
 
-	if g.sublevel == "sewer" {
-		screen.DrawImage(vignette, nil)
-	} else {
-		screen.DrawImage(vignette_mild, nil)
-	}
+	screen.DrawImage(g.CurrentSublevel().Vignette, nil)
 
 	if g.inCraftingUi {
 		g.craftingUI.Draw(screen)
 	}
 
-	for _, e := range g.CurrentSublevel().Enemies {
-		e.Draw(screen, g, 0, 0, false)
+	g.hudUI.Draw(screen)
+
+	op := &text.DrawOptions{}
+	op.GeoM.Translate(320-4, 0)
+	op.PrimaryAlign = text.AlignEnd
+
+	text.Draw(screen, fmt.Sprint("Day ", g.day), &text.GoTextFace{
+		Source: fontFaceSource,
+		Size:   16,
+	}, op)
+
+	op = &text.DrawOptions{}
+	op.GeoM.Translate(320-4, 2+16)
+	op.PrimaryAlign = text.AlignEnd
+
+	text.Draw(screen, g.CurrentSublevel().Title, &text.GoTextFace{
+		Source: fontFaceSource,
+		Size:   8,
+	}, op)
+
+	smallFontFace := &text.GoTextFace{
+		Source: fontFaceSource,
+		Size:   8,
 	}
 
-	g.hudUI.Draw(screen)
+	if g.selectionName != "" {
+		textX, textY := g.targetX*16+2, (g.targetY*16)-8-4
+		textWidth, textHeight := text.Measure(g.selectionName, smallFontFace, 1)
+
+		op = &text.DrawOptions{}
+		op.GeoM.Translate(textX, textY)
+
+		if textX+textWidth > 320 {
+			op.PrimaryAlign = text.AlignEnd
+			textX -= textWidth
+		}
+
+		vector.FillRect(screen, float32(textX)-2, float32(textY)-1, float32(textWidth)+4, float32(textHeight)+2, color.RGBA{32, 32, 32, 255}, true)
+
+		text.Draw(screen, g.selectionName, smallFontFace, op)
+	}
+
+	// ops := &ebiten.DrawRectShaderOptions{}
+	// ops.Images[0] = screen
+
+	// shaded := ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())
+
+	// shaded.DrawRectShader(320, 240, crtshader, ops)
+	// screen.DrawImage(shaded, nil)
+	// ebitenutil.DebugPrint(screen, fmt.Sprint(ebiten.ActualFPS()))
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -450,12 +638,12 @@ func main() {
 		uiContext: superui.NewUIContext(),
 
 		inventory: [5]*Item{
-			{id: "tape"},
-			{id: "tape"},
-			{id: "tape"},
+			{id: "string"},
+			{id: "string"},
+			{id: "rod"},
 			{id: "box"},
 		},
-		sublevel:  "sewer",
+		sublevel:  "sewer_entrance",
 		sublevels: createSublevels(),
 	}
 
@@ -463,9 +651,9 @@ func main() {
 	g.craftingUI = createCraftingUi(g.uiContext, g)
 
 	p := &Character{
-		position:        Vector{1, 7},
+		position:        Vector{14, 6.5},
 		startLerpT:      -1000,
-		facingDirection: Vector{1, 0},
+		facingDirection: Vector{-1, 0},
 		walkSpeed:       .11,
 		speedMultiplier: 1,
 	}

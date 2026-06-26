@@ -8,11 +8,12 @@ type ConveyorItem struct {
 
 func UpdateConveyors(g *Game) {
 	sublevel := g.CurrentSublevel()
+
 	if g.t%10 != 0 {
 		return
 	}
 
-	for _, item := range sublevel.conveyorItems {
+	for i, item := range sublevel.conveyorItems {
 		var nextSpaceOccupied = false
 		tileX, tileY := int(item.X), int(item.Y)
 		for _, otherItem := range sublevel.conveyorItems {
@@ -28,7 +29,12 @@ func UpdateConveyors(g *Game) {
 			continue
 		}
 
-		if tileX < 0 || sublevel.tileMap[tileY][tileX] == nil {
+		if tileX < 0 {
+			sublevel.conveyorItems[i] = nil
+			continue
+		}
+
+		if sublevel.tileMap[tileY][tileX] == nil {
 			continue
 		}
 
@@ -39,5 +45,99 @@ func UpdateConveyors(g *Game) {
 			item.Y += CONVEYOR_SPEED / 16.0
 		}
 
+		if sublevel.tileMap[tileY][tileX].Type == "machine" {
+			if (item.X - float64(tileX)) > 1.0/16 {
+				continue
+			}
+
+			keepItem := HandleProcessor(g, sublevel, item, sublevel.tileMap[tileY][tileX])
+			if keepItem == false {
+				sublevel.conveyorItems[i] = nil
+			}
+		}
 	}
+
+	result := []*ConveyorItem{}
+	for _, item := range sublevel.conveyorItems {
+		if item == nil {
+			continue
+		}
+		result = append(result, item)
+	}
+	g.CurrentSublevel().conveyorItems = result
+}
+
+var machineTypeRecipes map[string]*Recipe
+
+func init() {
+	machineTypeRecipes = map[string]*Recipe{
+		"seal_board_in_casing": {
+			result:      "final_chip",
+			ingredients: []string{"casing", "circuit_board_programmed"},
+		},
+		"program_board": {
+			result:      "circuit_board_programmed",
+			ingredients: []string{"circuit_board_finished"},
+		},
+		"add_component_to_finished_board": {
+			result:      "circuit_board_finished",
+			ingredients: []string{"circuit_board_finished"},
+		},
+		"combine_copper_and_resin_board": {
+			result:      "uncut_circuit_board",
+			ingredients: []string{"resin_board", "copper_sheet"},
+		},
+		"apply_template_to_board": {
+			result:      "circuit_board_finished",
+			ingredients: []string{"uncut_circuit_board"},
+		},
+	}
+}
+
+// MACHINE TYPES
+// seal_board_in_casing
+// program_board
+// add_component_to_finished_board
+
+// returns false if the item should be consumed.
+func HandleProcessor(g *Game, s *Sublevel, item *ConveyorItem, tile *Tile) bool {
+	if tile.Type != "machine" {
+		panic("EXPECTED MACHINE")
+	}
+
+	recipe, exists := machineTypeRecipes[tile.SubType]
+	if !exists {
+		return true
+	}
+
+	var output string = recipe.result
+
+	if item.itemType.id == output {
+		return true
+	}
+
+	if tile.Inventory == nil {
+		tile.Inventory = map[string]int{}
+	}
+	tile.Inventory[item.itemType.id] += 1
+
+	canCraft := true
+	for _, ingredient := range recipe.ingredients {
+		if tile.Inventory[ingredient] == 0 {
+			canCraft = false
+		}
+	}
+
+	if !canCraft {
+		return false
+	}
+
+	for _, ingredient := range recipe.ingredients {
+		tile.Inventory[ingredient] -= 1
+	}
+
+	item.itemType = &Item{
+		id: output,
+	}
+	return true
 }

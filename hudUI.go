@@ -12,10 +12,10 @@ func createHudUi(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 
 	craftingButton := superui.NewBoxWidget(
 		&superui.BoxWidgetOps{
-			Padding:      superui.Spacing{Top: 4, Left: 4, Right: 4, Bottom: 4},
+			Padding:      superui.Spacing{Top: 2, Left: 2, Right: 2, Bottom: 2},
 			PositionMode: superui.PositionFixed,
-			X:            8,
-			Y:            8,
+			X:            4,
+			Y:            4,
 			CursorShape:  ebiten.CursorShapePointer,
 			IsFocusable:  true,
 
@@ -83,7 +83,7 @@ func createHudUi(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 
 					inventorySlot := g.inventory[slotIndex]
 					if inventorySlot != nil {
-						img := itemData[inventorySlot.id].image
+						img := GetHeldItemSprite(itemData[inventorySlot.id])
 						op := &ebiten.DrawImageOptions{}
 						op.GeoM.Translate(float64(widget.GetResultX()+4), float64(widget.GetResultY()+4))
 						screen.DrawImage(img, op)
@@ -106,4 +106,25 @@ func createHudUi(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 	ui.AddChild(hotbar)
 
 	return ui
+}
+
+func GetOrFreeSlotForItemInHotbar(g *Game) int {
+	replaceSlot := g.selectedSlot
+	if g.inventory[g.selectedSlot] == nil {
+		replaceSlot = g.selectedSlot
+	} else {
+		emptySlot := false
+		for i, slot := range g.inventory {
+			if slot == nil {
+				replaceSlot = i
+				emptySlot = true
+				break
+			}
+		}
+		if !emptySlot {
+			dropItemSlot(g, g.selectedSlot)
+			replaceSlot = g.selectedSlot
+		}
+	}
+	return replaceSlot
 }
