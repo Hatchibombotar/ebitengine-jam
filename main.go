@@ -42,6 +42,8 @@ type Game struct {
 	selectionInRange bool
 
 	day int
+
+	progressBar float64
 }
 
 func (g *Game) CurrentSublevel() *Sublevel {
@@ -153,33 +155,67 @@ func (g *Game) Update() error {
 	if cursorSelectionTile != nil && cursorSelectionTile.Type == "vent_down" {
 		clickUseType = "vent_down"
 	}
+	if cursorSelectionTile != nil && cursorSelectionTile.Type == "vent_down_open" {
+		clickUseType = "vent_down_open"
+	}
 	if cursorSelectionTile != nil && cursorSelectionTile.Type == "box" {
 		clickUseType = "box"
 	}
+	if cursorSelectionTile != nil && cursorSelectionTile.Type == "electrical_switch" {
+		clickUseType = "electrical_switch"
+	}
+	if tileImOn != nil && tileImOn.Type == "box" && g.CurrentSublevel().adjacentSpaces.Up != "" {
+		aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
+		aboveSpace := g.sublevels[aboveSpaceId]
 
+		tileAbove := GetTileFromTileMap(aboveSpace.tileMap, targetX, targetY)
+		if tileAbove != nil {
+			switch tileAbove.Type {
+			case "vent_down":
+				clickUseType = "vent_up"
+			case "vent_down_open":
+				clickUseType = "vent_up_open"
+			}
+		}
+	}
+
+	// Selection name
 	switch clickUseType {
 	case "conveyor_item":
 		g.selectionName = itemData[selectedConveyorItem.itemType.id].name
-		g.targetX, g.targetY = selectedConveyorItem.X, selectedConveyorItem.Y
 	case "item":
 		g.selectionName = itemData[selectedItem.itemType.id].name
-		g.targetX, g.targetY = selectedItem.X, selectedItem.Y
-	case "vent_down":
+	case "vent_up", "vent_down":
 		g.selectionName = "Vent"
-		g.targetX, g.targetY = float64(cursorX/16), float64(cursorY/16)
+	case "vent_up_open", "vent_down_open":
+		g.selectionName = "Vent (Unscrewed)"
 	case "box":
 		g.selectionName = "Box"
-		g.targetX, g.targetY = float64(cursorX/16), float64(cursorY/16)
+	case "electrical_switch":
+		g.selectionName = "Electrical Switch"
 	default:
 		g.selectionName = ""
+	}
+
+	// Selection Box Position
+	switch clickUseType {
+	case "conveyor_item":
+		g.targetX, g.targetY = selectedConveyorItem.X, selectedConveyorItem.Y
+	case "item":
+		g.targetX, g.targetY = selectedItem.X, selectedItem.Y
+	case "electrical_switch":
+		g.targetX, g.targetY = float64(cursorX/16), float64(cursorY/16)-0.25
+	default:
 		g.targetX, g.targetY = float64(cursorX/16), float64(cursorY/16)
 	}
 
 	distanceBetweenPlayerAndTarget := math.Sqrt(math.Pow(g.targetX-g.player.position.X, 2) + math.Pow(g.targetY-g.player.position.Y, 2))
 
-	g.selectionInRange = distanceBetweenPlayerAndTarget < 3
-	if clickUseType == "vent_down" {
+	switch clickUseType {
+	case "vent_down", "vent_down_open", "vent_up", "vent_up_open":
 		g.selectionInRange = distanceBetweenPlayerAndTarget < 1
+	default:
+		g.selectionInRange = distanceBetweenPlayerAndTarget < 3
 	}
 
 	hasSelection := g.selectionName != ""
@@ -194,29 +230,47 @@ func (g *Game) Update() error {
 			replaceSlot := GetOrFreeSlotForItemInHotbar(g)
 			g.inventory[replaceSlot] = selectedItem.itemType
 			g.CurrentSublevel().inGameItems = slices.Delete(g.CurrentSublevel().inGameItems, selectedItemIndex, selectedItemIndex+1)
-		case "vent_down":
-			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-				if g.CurrentSublevel().adjacentSpaces.Down != "" {
-					g.sublevel = g.CurrentSublevel().adjacentSpaces.Down
-				}
+		case "vent_down_open":
+			if g.CurrentSublevel().adjacentSpaces.Down != "" {
+				g.sublevel = g.CurrentSublevel().adjacentSpaces.Down
 			}
+		case "vent_down":
+			g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+				Type: "vent_down_open",
+			}
+		case "vent_up":
+			aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
+			aboveSpace := g.sublevels[aboveSpaceId]
+
+			aboveSpace.tileMap[targetY][targetX] = &Tile{
+				Type: "vent_down_open",
+			}
+		case "vent_up_open":
+			g.sublevel = g.CurrentSublevel().adjacentSpaces.Up
 		case "box":
+			cursorSelectionTile.Damage += 0.2
+
+			if cursorSelectionTile.Damage >= 1 {
+				replaceSlot := GetOrFreeSlotForItemInHotbar(g)
+				g.inventory[replaceSlot] = &Item{
+					id: "box",
+				}
+				g.CurrentSublevel().tileMap[targetY][targetX] = nil
+			}
 		}
+	}
+
+	if clickUseType == "box" {
+		g.progressBar = 1 - cursorSelectionTile.Damage
+	} else {
+		g.progressBar = -1
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
 		dropItemSlot(g, g.selectedSlot)
 	}
 
-	if tileImOn != nil && tileImOn.Type == "box" {
-		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-			if g.CurrentSublevel().adjacentSpaces.Up != "" {
-				g.sublevel = g.CurrentSublevel().adjacentSpaces.Up
-			}
-		}
-	}
-
-	if hasSelection == false {
+	if hasSelection == false && !g.uiContext.IsHovered() {
 		g.ItemUseEvents()
 	}
 
@@ -244,7 +298,8 @@ func (g *Game) ItemUseEvents() {
 		targetX, targetY := (cursorX / 16), (cursorY / 16)
 
 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
-			Type: "box",
+			Type:   "box",
+			Damage: 0,
 		}
 
 		g.inventory[g.selectedSlot] = nil
@@ -438,6 +493,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				screen.DrawImage(machine, op)
 			case "vent_down":
 				screen.DrawImage(vent, op)
+			case "vent_down_open":
+				screen.DrawImage(vent_open, op)
 			}
 		}
 	}
@@ -545,8 +602,27 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	if tileImOn != nil && tileImOn.Type == "box" {
-		screen.DrawImage(vents, nil)
+	if tileImOn != nil && tileImOn.Type == "box" && g.CurrentSublevel().adjacentSpaces.Up != "" {
+		aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
+		aboveSpace := g.sublevels[aboveSpaceId]
+
+		for y, row := range aboveSpace.tileMap {
+			for x, tile := range row {
+				if tile == nil {
+					continue
+				}
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Translate(float64(x*16), float64(y*16))
+				op.ColorScale.ScaleAlpha(0.65)
+
+				switch tile.Type {
+				case "vent_down":
+					screen.DrawImage(vent, op)
+				case "vent_down_open":
+					screen.DrawImage(vent_open, op)
+				}
+			}
+		}
 	}
 
 	for _, e := range g.CurrentSublevel().Enemies {
@@ -614,6 +690,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		vector.FillRect(screen, float32(textX)-2, float32(textY)-1, float32(textWidth)+4, float32(textHeight)+2, color.RGBA{32, 32, 32, 255}, true)
 
 		text.Draw(screen, g.selectionName, smallFontFace, op)
+	}
+
+	if g.progressBar != -1 {
+		textX, textY := g.targetX*16+2, (g.targetY*16)+16+4
+		width, height := 20, 3
+		vector.FillRect(screen, float32(textX)-2, float32(textY)-2, float32(width)+4, float32(height)+4, color.RGBA{32, 32, 32, 255}, true)
+
+		colour := color.RGBA{110, 206, 84, 255} // green
+		if g.progressBar < 0.33 {
+			colour = color.RGBA{206, 89, 84, 255} // red
+		} else if g.progressBar < 0.66 {
+			colour = color.RGBA{206, 149, 84, 255} // orange
+		}
+		vector.FillRect(screen, float32(textX), float32(textY), float32(width)*float32(g.progressBar), float32(height), colour, true)
+
 	}
 
 	// ops := &ebiten.DrawRectShaderOptions{}

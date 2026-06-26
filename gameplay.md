@@ -1,3 +1,19 @@
+## TODO
+- [ ] Box Crafting Recipe
+- [ ] Electrical System
+- [ ] Template Machine
+- [ ] Template Alterer
+- [ ] Bad USB Template
+- [ ] GOOD Control Board
+- [ ] Attack Robots
+- [ ] Way out of sewer?
+
+## Polish
+- CRT Filter
+- Area transitions
+- Sounds
+- Water Movement
+
 ## Gameplay
 
 ### Day 1 - Tool Creation

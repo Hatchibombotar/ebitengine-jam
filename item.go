@@ -119,7 +119,7 @@ func init() {
 			image: casing,
 		},
 		"final_chip": {
-			name:  "Unsealed final_chip",
+			name:  "Evil Chip",
 			image: final_chip,
 		},
 	}

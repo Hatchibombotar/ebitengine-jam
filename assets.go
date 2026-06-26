@@ -14,12 +14,20 @@ var control_room_overlay = LoadImageFromPath("assets/backgrounds/control_room_ov
 var storage_b = LoadImageFromPath("assets/backgrounds/storage_b.png")
 var storage_b_overlay = LoadImageFromPath("assets/backgrounds/storage_b_overlay.png")
 
+var electrical_corridor = LoadImageFromPath("assets/backgrounds/electrical_corridor.png")
+var electrical = LoadImageFromPath("assets/backgrounds/electrical.png")
+var electrical_overlay = LoadImageFromPath("assets/backgrounds/electrical_overlay.png")
+
 var final_production = LoadImageFromPath("assets/backgrounds/final_production.png")
 var final_production_overlay = LoadImageFromPath("assets/backgrounds/final_production_overlay.png")
+
+var pcb_manufacture = LoadImageFromPath("assets/backgrounds/pcb_manufacture.png")
+var pcb_manufacture_overlay = LoadImageFromPath("assets/backgrounds/pcb_manufacture_overlay.png")
 
 var metal_room = LoadImageFromPath("assets/backgrounds/metal_room.png")
 var metal_room_overlay = LoadImageFromPath("assets/backgrounds/metal_room_overlay.png")
 
+var pick_and_place = LoadImageFromPath("assets/backgrounds/pick_and_place.png")
 var pick_and_place_overlay = LoadImageFromPath("assets/backgrounds/pick_and_place_overlay.png")
 
 var vents = LoadImageFromPath("assets/backgrounds/vents.png")
@@ -54,6 +62,7 @@ var recipe_slot = LoadImageFromPath("assets/ui/recipe_slot.png")
 var recipe_slot_active = LoadImageFromPath("assets/ui/recipe_slot_active.png")
 
 var vent = LoadImageFromPath("assets/vent.png")
+var vent_open = LoadImageFromPath("assets/vent_open.png")
 var machine = LoadImageFromPath("assets/machine.png")
 var conveyor_left = LoadImageFromPath("assets/conveyor_left.png")
 var conveyor_left_flipbook = LoadImageFromPath("assets/conveyor_left_flipbook.png")
