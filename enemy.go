@@ -4,11 +4,16 @@ import "math"
 
 type Enemy struct {
 	*Character
-	move func(g *Game, e *Enemy)
+	move         func(g *Game, e *Enemy)
+	Health       int
+	MaxHealth    int
+	Acceleration Vector
 }
 
 func createEnemy1() *Enemy {
 	enemy := &Enemy{
+		Health:    20,
+		MaxHealth: 20,
 		Character: &Character{
 			position:        Vector{5, 5},
 			startLerpT:      -1000,
@@ -22,6 +27,11 @@ func createEnemy1() *Enemy {
 	return enemy
 }
 func (e *Enemy) Move(sublevel *Sublevel, targetX, targetY float64) {
+	e.position.X += e.Acceleration.X
+	e.position.Y += e.Acceleration.Y
+
+	e.Acceleration.X *= 0.9
+	e.Acceleration.Y *= 0.9
 	speed := 2.0
 
 	// Calculate direction to target

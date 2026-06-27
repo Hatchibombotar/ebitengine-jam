@@ -4,6 +4,7 @@ var spritesheet = LoadImageFromPath("assets/spritesheet.png")
 var test_bg = LoadImageFromPath("assets/backgrounds/test_bg.png")
 var sewer_left = LoadImageFromPath("assets/backgrounds/sewer_left.png")
 var sewer_entrance = LoadImageFromPath("assets/backgrounds/sewer_entrance.png")
+var sewer_entrance_overlay = LoadImageFromPath("assets/backgrounds/sewer_entrance_overlay.png")
 var sewer_middle = LoadImageFromPath("assets/backgrounds/sewer_middle.png")
 var sewer_middle_with_top_connection = LoadImageFromPath("assets/backgrounds/sewer_middle_with_top_connection.png")
 var sewer_going_up = LoadImageFromPath("assets/backgrounds/sewer_going_up.png")
@@ -40,12 +41,15 @@ var target_red = LoadImageFromPath("assets/target_red.png")
 
 var debug_wall = LoadImageFromPath("assets/debug_wall.png")
 
+var hud_button_nine_slice = LoadImageFromPath("assets/ui/hud_button_nine_slice.png")
+var hud_button_nine_slice_inverted = LoadImageFromPath("assets/ui/hud_button_nine_slice_inverted.png")
 var button_nine_slice = LoadImageFromPath("assets/ui/button_nine_slice.png")
 var button_nine_slice_inverted = LoadImageFromPath("assets/ui/button_nine_slice_inverted.png")
 var button_nine_slice_disabled = LoadImageFromPath("assets/ui/button_nine_slice_disabled.png")
 var box_nine_slice = LoadImageFromPath("assets/ui/box_nine_slice.png")
 
-var hammer = LoadImageFromPath("assets/hammer.png") // crafting symbol
+var hammer = LoadImageFromPath("assets/hammer.png")       // crafting symbol
+var todo_list = LoadImageFromPath("assets/todo_list.png") // crafting symbol
 
 var crafting_divider = LoadImageFromPath("assets/ui/crafting_divider.png")
 
@@ -63,6 +67,8 @@ var recipe_slot_active = LoadImageFromPath("assets/ui/recipe_slot_active.png")
 
 var vent = LoadImageFromPath("assets/vent.png")
 var vent_open = LoadImageFromPath("assets/vent_open.png")
+var vent_shadow = LoadImageFromPath("assets/vent_shadow.png")
+var vent_open_shadow = LoadImageFromPath("assets/vent_open_shadow.png")
 var machine = LoadImageFromPath("assets/machine.png")
 var conveyor_left = LoadImageFromPath("assets/conveyor_left.png")
 var conveyor_left_flipbook = LoadImageFromPath("assets/conveyor_left_flipbook.png")

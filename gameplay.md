@@ -1,12 +1,11 @@
 ## TODO
+- [ ] Enemies attack you
 - [ ] Box Crafting Recipe
 - [ ] Electrical System
 - [ ] Template Machine
 - [ ] Template Alterer
 - [ ] Bad USB Template
 - [ ] GOOD Control Board
-- [ ] Attack Robots
-- [ ] Way out of sewer?
 
 ## Polish
 - CRT Filter

@@ -16,22 +16,52 @@ func openCraftingUI(g *Game) {
 func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 	ui := superui.NewUI(uiContext)
 
-	craftingUi := superui.NewBoxWidget(
+	ui.AddChild(
+		superui.NewBoxWidget(
+			&superui.BoxWidgetOps{
+				PositionMode: superui.PositionFixed,
+				X:            8,
+				Y:            4 + 16 + 8,
+			},
+			superui.NewTextWidget(
+				&superui.TextWidgetOps{
+					Face: &text.GoTextFace{
+						Source: fontFaceSource,
+						Size:   16,
+					},
+					Color:         color.White,
+					WrapBehaviour: superui.NoWrap,
+				},
+				"Crafting",
+			),
+		),
+	)
+
+	craftingContainerRoot := superui.NewBoxWidget(
 		&superui.BoxWidgetOps{
 			PositionMode: superui.PositionFixed,
 			X:            8,
-			Y:            4 + 32 + 8 + 4,
+			Y:            4 + 32 + 8 + 8,
 
-			LayoutDirection: superui.LayoutRow,
-			Gap:             2,
+			Gap: 2,
 
-			Padding: superui.Spacing{Top: 4, Left: 4, Right: 4, Bottom: 4},
+			Padding: superui.Spacing{Top: 0, Left: 4, Right: 4},
 
 			OnDraw: func(screen *ebiten.Image, widget superui.GenericWidget, root *superui.UIContainer) {
 				superui.FillNineSlice(screen, widget, box_nine_slice, 3)
 			},
 		},
 	)
+
+	craftingUi := superui.NewBoxWidget(
+		&superui.BoxWidgetOps{
+			Padding:         superui.Spacing{Top: 4, Bottom: 4},
+			LayoutDirection: superui.LayoutRow,
+			Gap:             2,
+		},
+	)
+
+	craftingContainerRoot.AddChild(craftingUi)
 
 	recipeList := superui.NewBoxWidget(
 		&superui.BoxWidgetOps{
@@ -232,7 +262,7 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 		),
 	)
 
-	ui.AddChild(craftingUi)
+	ui.AddChild(craftingContainerRoot)
 	return ui
 }
 

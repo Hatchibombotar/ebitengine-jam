@@ -24,11 +24,15 @@ type Game struct {
 	uiContext  *superui.UIContext
 	hudUI      *superui.UIContainer
 	craftingUI *superui.UIContainer
+	todoUI     *superui.UIContainer
 
 	inventory    [5]*Item
 	selectedSlot int
 
-	inCraftingUi   bool
+	inCraftingUi bool
+	inTodoUI     bool
+	inEndScreen  bool
+
 	selectedRecipe int
 
 	sublevel string
@@ -44,6 +48,15 @@ type Game struct {
 	day int
 
 	progressBar float64
+
+	timeRemaining int
+
+	endScreenUI *superui.UIContainer
+
+	tasks []*Task
+
+	Health    int
+	MaxHealth int
 }
 
 func (g *Game) CurrentSublevel() *Sublevel {
@@ -57,7 +70,28 @@ func (g *Game) CurrentSublevel() *Sublevel {
 const ITEM_REACH_RANGE = 1.0
 
 func (g *Game) Update() error {
+	g.uiContext.PreUpdate()
+
+	if g.inEndScreen {
+		g.endScreenUI.Update()
+		g.uiContext.Update()
+		return nil
+	}
+
+	if g.inCraftingUi {
+		g.craftingUI.Update()
+	}
+	if g.inTodoUI {
+		g.todoUI.Update()
+	}
+	g.hudUI.Update()
+	g.uiContext.Update()
+
+	// Update called each tick (1/60 s)
 	g.t += 1
+	if g.timeRemaining > 0 {
+		g.timeRemaining -= 1
+	}
 
 	if g.CurrentSublevel().Spawners != nil {
 		for _, spawner := range g.CurrentSublevel().Spawners {
@@ -81,21 +115,21 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
 		g.inCraftingUi = !g.inCraftingUi
 		if g.inCraftingUi {
+			g.inTodoUI = false
 			openCraftingUI(g)
+		}
+	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+		g.inTodoUI = !g.inTodoUI
+		if g.inTodoUI {
+			g.inCraftingUi = false
 		}
 	}
 
 	g.handlePlayerMovement()
 
 	g.setTileToWall()
-
-	g.uiContext.PreUpdate()
-	if g.inCraftingUi {
-		g.craftingUI.Update()
-	}
-	g.hudUI.Update()
-
-	g.uiContext.Update()
 
 	if ebiten.IsKeyPressed(ebiten.Key1) {
 		g.selectedSlot = 0
@@ -118,12 +152,17 @@ func (g *Game) Update() error {
 	cursorSelectionTile := GetTileFromTileMap(g.CurrentSublevel().tileMap, targetX, targetY)
 	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
 
+	heldItem := g.inventory[g.selectedSlot]
+
 	clickUseType := ""
+
+	if cursorSelectionTile == nil && heldItem != nil && heldItem.id == "box" {
+		clickUseType = "place_box"
+	}
 
 	var selectedConveyorItem *ConveyorItem
 	var selectedConveyorItemIndex int
 	for index, conveyorItem := range g.CurrentSublevel().conveyorItems {
-
 		itemCenterX, itemCenterY := conveyorItem.X+0.5, conveyorItem.Y+0.5
 
 		distance := math.Sqrt(math.Pow(itemCenterX-gridCursorX, 2) + math.Pow(itemCenterY-gridCursorY, 2))
@@ -152,17 +191,36 @@ func (g *Game) Update() error {
 		}
 	}
 
+	if cursorSelectionTile != nil && cursorSelectionTile.Type == "box" {
+		clickUseType = "box"
+	}
+
+	var selectedEnemy *Enemy
+	var selectedEnemyIndex int
+	for index, enemy := range g.CurrentSublevel().Enemies {
+		enemyCenterX, enemyCenterY := enemy.position.X+0.5, enemy.position.Y+0.5
+
+		distance := math.Sqrt(math.Pow(enemyCenterX-gridCursorX, 2) + math.Pow(enemyCenterY-gridCursorY, 2))
+
+		if distance < 1.25 {
+			clickUseType = "enemy"
+			selectedEnemy = enemy
+			selectedEnemyIndex = index
+			break
+		}
+	}
+
 	if cursorSelectionTile != nil && cursorSelectionTile.Type == "vent_down" {
 		clickUseType = "vent_down"
 	}
 	if cursorSelectionTile != nil && cursorSelectionTile.Type == "vent_down_open" {
 		clickUseType = "vent_down_open"
 	}
-	if cursorSelectionTile != nil && cursorSelectionTile.Type == "box" {
-		clickUseType = "box"
-	}
 	if cursorSelectionTile != nil && cursorSelectionTile.Type == "electrical_switch" {
 		clickUseType = "electrical_switch"
+	}
+	if cursorSelectionTile != nil && cursorSelectionTile.Type == "escape_ladder" {
+		clickUseType = "escape_ladder"
 	}
 	if tileImOn != nil && tileImOn.Type == "box" && g.CurrentSublevel().adjacentSpaces.Up != "" {
 		aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
@@ -193,6 +251,12 @@ func (g *Game) Update() error {
 		g.selectionName = "Box"
 	case "electrical_switch":
 		g.selectionName = "Electrical Switch"
+	case "escape_ladder":
+		g.selectionName = "Escape Ladder"
+	case "enemy":
+		g.selectionName = "Robot"
+	case "place_box":
+		g.selectionName = "Place Box"
 	default:
 		g.selectionName = ""
 	}
@@ -203,6 +267,8 @@ func (g *Game) Update() error {
 		g.targetX, g.targetY = selectedConveyorItem.X, selectedConveyorItem.Y
 	case "item":
 		g.targetX, g.targetY = selectedItem.X, selectedItem.Y
+	case "enemy":
+		g.targetX, g.targetY = math.Floor(selectedEnemy.position.X*16)/16, math.Floor(selectedEnemy.position.Y*16)/16
 	case "electrical_switch":
 		g.targetX, g.targetY = float64(cursorX/16), float64(cursorY/16)-0.25
 	default:
@@ -214,6 +280,8 @@ func (g *Game) Update() error {
 	switch clickUseType {
 	case "vent_down", "vent_down_open", "vent_up", "vent_up_open":
 		g.selectionInRange = distanceBetweenPlayerAndTarget < 1
+	case "escape_ladder":
+		g.selectionInRange = distanceBetweenPlayerAndTarget < 2
 	default:
 		g.selectionInRange = distanceBetweenPlayerAndTarget < 3
 	}
@@ -257,21 +325,39 @@ func (g *Game) Update() error {
 				}
 				g.CurrentSublevel().tileMap[targetY][targetX] = nil
 			}
+		case "enemy":
+			selectedEnemy.Health -= 2
+			enemyToPlayerVector := VectorNormalise(VectorSubtract(selectedEnemy.position, g.player.position))
+			knockbackVector := VectorScale(enemyToPlayerVector, 0.15)
+			selectedEnemy.Acceleration = knockbackVector
+
+			if selectedEnemy.Health <= 0 {
+				g.CurrentSublevel().Enemies = slices.Delete(g.CurrentSublevel().Enemies, selectedEnemyIndex, selectedEnemyIndex+1)
+
+			}
+		case "escape_ladder":
+			g.EndDay()
+		case "place_box":
+			g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+				Type:   "box",
+				Damage: 0,
+			}
+
+			g.inventory[g.selectedSlot] = nil
 		}
 	}
 
-	if clickUseType == "box" {
+	switch clickUseType {
+	case "box":
 		g.progressBar = 1 - cursorSelectionTile.Damage
-	} else {
+	case "enemy":
+		g.progressBar = float64(selectedEnemy.Health) / float64(selectedEnemy.MaxHealth)
+	default:
 		g.progressBar = -1
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
 		dropItemSlot(g, g.selectedSlot)
-	}
-
-	if hasSelection == false && !g.uiContext.IsHovered() {
-		g.ItemUseEvents()
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyF9) {
@@ -285,25 +371,6 @@ func (g *Game) Update() error {
 	}
 
 	return nil
-}
-
-func (g *Game) ItemUseEvents() {
-	heldItem := g.inventory[g.selectedSlot]
-	if heldItem == nil {
-		return
-	}
-
-	if heldItem.id == "box" && inpututil.IsMouseButtonJustPressed(ebiten.MouseButton0) {
-		cursorX, cursorY := ebiten.CursorPosition()
-		targetX, targetY := (cursorX / 16), (cursorY / 16)
-
-		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
-			Type:   "box",
-			Damage: 0,
-		}
-
-		g.inventory[g.selectedSlot] = nil
-	}
 }
 
 func (g *Game) handlePlayerMovement() {
@@ -459,6 +526,12 @@ func (g *Game) setTileToWall() {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
+	if g.inEndScreen {
+		screen.Fill(color.Black)
+		g.endScreenUI.Draw(screen)
+		return
+	}
+
 	screen.DrawImage(
 		g.CurrentSublevel().Background, nil,
 	)
@@ -602,24 +675,40 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	if tileImOn != nil && tileImOn.Type == "box" && g.CurrentSublevel().adjacentSpaces.Up != "" {
+	if g.CurrentSublevel().adjacentSpaces.Up != "" {
 		aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
 		aboveSpace := g.sublevels[aboveSpaceId]
+
+		standingOnBox := tileImOn != nil && tileImOn.Type == "box"
 
 		for y, row := range aboveSpace.tileMap {
 			for x, tile := range row {
 				if tile == nil {
 					continue
 				}
+				currentTile := g.CurrentSublevel().tileMap[y][x]
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Translate(float64(x*16), float64(y*16))
 				op.ColorScale.ScaleAlpha(0.65)
 
-				switch tile.Type {
-				case "vent_down":
-					screen.DrawImage(vent, op)
-				case "vent_down_open":
-					screen.DrawImage(vent_open, op)
+				if standingOnBox {
+					switch tile.Type {
+					case "vent_down":
+						screen.DrawImage(vent, op)
+					case "vent_down_open":
+						screen.DrawImage(vent_open, op)
+					}
+				} else {
+					op.ColorScale.ScaleAlpha(0.6)
+					if currentTile != nil && currentTile.Type == "box" {
+						op.ColorScale.ScaleAlpha(0.3)
+					}
+					switch tile.Type {
+					case "vent_down":
+						screen.DrawImage(vent_shadow, op)
+					case "vent_down_open":
+						screen.DrawImage(vent_open_shadow, op)
+					}
 				}
 			}
 		}
@@ -628,6 +717,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	for _, e := range g.CurrentSublevel().Enemies {
 		e.Draw(screen, g, 0, 0, false)
 	}
+
+	ops := &ebiten.DrawRectShaderOptions{}
+	ops.Images[0] = screen
+
+	shaded := ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())
+
+	shaded.DrawRectShader(320, 240, crtshader, ops)
+	screen.DrawImage(shaded, nil)
 
 	if !g.uiContext.IsHovered() {
 		op := &ebiten.DrawImageOptions{}
@@ -640,7 +737,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				screen.DrawImage(target_red, op)
 			}
 		} else {
-			screen.DrawImage(target, op)
+			// screen.DrawImage(target, op)
 		}
 	}
 
@@ -648,6 +745,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	if g.inCraftingUi {
 		g.craftingUI.Draw(screen)
+	}
+	if g.inTodoUI {
+		g.todoUI.Draw(screen)
 	}
 
 	g.hudUI.Draw(screen)
@@ -661,19 +761,38 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		Size:   16,
 	}, op)
 
-	op = &text.DrawOptions{}
-	op.GeoM.Translate(320-4, 2+16)
-	op.PrimaryAlign = text.AlignEnd
-
-	text.Draw(screen, g.CurrentSublevel().Title, &text.GoTextFace{
-		Source: fontFaceSource,
-		Size:   8,
-	}, op)
-
 	smallFontFace := &text.GoTextFace{
 		Source: fontFaceSource,
 		Size:   8,
 	}
+
+	op = &text.DrawOptions{}
+	op.GeoM.Translate(320-4, 2+16)
+	op.PrimaryAlign = text.AlignEnd
+	op.ColorScale.ScaleWithColor(color.Gray{180})
+
+	text.Draw(screen, g.CurrentSublevel().Title, smallFontFace, op)
+
+	totalSeconds := g.timeRemaining / 60
+	minutes := totalSeconds / 60
+	seconds := totalSeconds % 60
+
+	formattedTimeRemaining := fmt.Sprintf("%02d:%02d", minutes, seconds)
+
+	timeWidth, _ := text.Measure(formattedTimeRemaining, smallFontFace, 1)
+	op = &text.DrawOptions{}
+	op.GeoM.Translate(320-4-timeWidth, 2+16+16)
+	op.PrimaryAlign = text.AlignEnd
+	op.ColorScale.ScaleWithColor(color.Gray{180})
+
+	text.Draw(screen, "Time Remaining: ", smallFontFace, op)
+
+	op = &text.DrawOptions{}
+	op.GeoM.Translate(320-4, 2+16+16)
+	op.PrimaryAlign = text.AlignEnd
+	op.ColorScale.ScaleWithColor(color.Gray{180})
+
+	text.Draw(screen, formattedTimeRemaining, smallFontFace, op)
 
 	if g.selectionName != "" {
 		textX, textY := g.targetX*16+2, (g.targetY*16)-8-4
@@ -704,17 +823,31 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			colour = color.RGBA{206, 149, 84, 255} // orange
 		}
 		vector.FillRect(screen, float32(textX), float32(textY), float32(width)*float32(g.progressBar), float32(height), colour, true)
-
 	}
 
-	// ops := &ebiten.DrawRectShaderOptions{}
-	// ops.Images[0] = screen
+	healthBarX, healthBarY := 8, 200
+	width, height := 65, 4
+	percentHealth := float64(g.Health) / float64(g.MaxHealth)
+	vector.FillRect(screen, float32(healthBarX)-2, float32(healthBarY)-2, float32(width)+4, float32(height)+4, color.RGBA{32, 32, 32, 255}, true)
 
-	// shaded := ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())
+	colour := color.RGBA{110, 206, 84, 255} // green
+	if percentHealth < 0.33 {
+		colour = color.RGBA{206, 89, 84, 255} // red
+	} else if percentHealth < 0.66 {
+		colour = color.RGBA{206, 149, 84, 255} // orange
+	}
+	vector.FillRect(screen, float32(healthBarX), float32(healthBarY), float32(width)*float32(percentHealth), float32(height), colour, true)
 
-	// shaded.DrawRectShader(320, 240, crtshader, ops)
-	// screen.DrawImage(shaded, nil)
 	// ebitenutil.DebugPrint(screen, fmt.Sprint(ebiten.ActualFPS()))
+}
+
+func (g *Game) StartDay() {
+	g.inEndScreen = false
+	g.timeRemaining = 3 * 60 * 60
+	g.day += 1
+}
+func (g *Game) EndDay() {
+	g.inEndScreen = true
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -736,10 +869,19 @@ func main() {
 		},
 		sublevel:  "sewer_entrance",
 		sublevels: createSublevels(),
+
+		tasks: getTaskList(),
+
+		Health:    20,
+		MaxHealth: 20,
 	}
+
+	g.StartDay()
 
 	g.hudUI = createHudUi(g.uiContext, g)
 	g.craftingUI = createCraftingUi(g.uiContext, g)
+	g.endScreenUI = CreateEndScreen(g.uiContext, g)
+	g.todoUI = createTodoUI(g.uiContext, g)
 
 	p := &Character{
 		position:        Vector{14, 6.5},

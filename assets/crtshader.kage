@@ -30,20 +30,20 @@ func Fragment(dst vec4, src vec2, color vec4) vec4 {
 
 	col = clamp(col*0.6+0.4*col*col, 0, 1)
 
-	vig := (16.0 * uv.x * uv.y * (1 - uv.x) * (1 - uv.y))
-	col *= vec3(pow(vig, 0.3))
-	col *= vec3(0.95, 1.05, 0.95)
-	col *= 2.8
+	// vig := (16.0 * uv.x * uv.y * (1 - uv.x) * (1 - uv.y))
+	// col *= vec3(pow(vig, 0.3))
+	// col *= vec3(0.95, 1.05, 0.95)
+	// col *= 2.8
 
-	scans := clamp(0.35+0.35*sin(uv.y*size.y*1.5), 0, 1)
-	s := pow(scans, 1.7)
-	col *= vec3(0.4 + 0.7*s)
+	// scans := clamp(0.35+0.35*sin(uv.y*size.y*1.5), 0, 1)
+	// s := pow(scans, 1.7)
+	// col *= vec3(0.4 + 0.7*s)
 
 	if uv.x < 0.0 || uv.x > 1.0 || uv.y < 0 || uv.y > 1 {
 		col *= 0
 	}
 
-	col *= (1 - 0.65*vec3(clamp((mod(src.x, 2)-1)*2, 0, 1)))
+	// col *= (1 - 0.65*vec3(clamp((mod(src.x, 2)-1)*2, 0, 1)))
 
 	return vec4(col, 1)
 }
