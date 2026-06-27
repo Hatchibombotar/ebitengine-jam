@@ -117,7 +117,7 @@ func createHudUi(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 		},
 	)
 
-	for slotIndex := range 5 {
+	for slotIndex := range 8 {
 		slot := superui.NewBoxWidget(
 			&superui.BoxWidgetOps{
 				Width:      24,

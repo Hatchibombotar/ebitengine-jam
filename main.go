@@ -26,7 +26,7 @@ type Game struct {
 	craftingUI *superui.UIContainer
 	todoUI     *superui.UIContainer
 
-	inventory    [5]*Item
+	inventory    [8]*Item
 	selectedSlot int
 
 	inCraftingUi bool
@@ -57,6 +57,8 @@ type Game struct {
 
 	Health    int
 	MaxHealth int
+
+	templateItem *Item
 }
 
 func (g *Game) CurrentSublevel() *Sublevel {
@@ -120,7 +122,7 @@ func (g *Game) Update() error {
 		}
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyT) {
 		g.inTodoUI = !g.inTodoUI
 		if g.inTodoUI {
 			g.inCraftingUi = false
@@ -195,6 +197,10 @@ func (g *Game) Update() error {
 		clickUseType = "box"
 	}
 
+	if cursorSelectionTile != nil && cursorSelectionTile.Type == "wire" {
+		clickUseType = "wire"
+	}
+
 	var selectedEnemy *Enemy
 	var selectedEnemyIndex int
 	for index, enemy := range g.CurrentSublevel().Enemies {
@@ -221,6 +227,9 @@ func (g *Game) Update() error {
 	}
 	if cursorSelectionTile != nil && cursorSelectionTile.Type == "escape_ladder" {
 		clickUseType = "escape_ladder"
+	}
+	if cursorSelectionTile != nil && cursorSelectionTile.Type == "template_holder" {
+		clickUseType = "template_holder"
 	}
 	if tileImOn != nil && tileImOn.Type == "box" && g.CurrentSublevel().adjacentSpaces.Up != "" {
 		aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
@@ -249,6 +258,8 @@ func (g *Game) Update() error {
 		g.selectionName = "Vent (Unscrewed)"
 	case "box":
 		g.selectionName = "Box"
+	case "wire":
+		g.selectionName = "Wire Mesh"
 	case "electrical_switch":
 		g.selectionName = "Electrical Switch"
 	case "escape_ladder":
@@ -257,6 +268,12 @@ func (g *Game) Update() error {
 		g.selectionName = "Robot"
 	case "place_box":
 		g.selectionName = "Place Box"
+	case "template_holder":
+		if g.templateItem == nil {
+			g.selectionName = "Insert Template"
+		} else {
+			g.selectionName = "Remove Template"
+		}
 	default:
 		g.selectionName = ""
 	}
@@ -325,14 +342,30 @@ func (g *Game) Update() error {
 				}
 				g.CurrentSublevel().tileMap[targetY][targetX] = nil
 			}
+		case "wire":
+			cursorSelectionTile.Damage += 0.2
+
+			if cursorSelectionTile.Damage >= 1 {
+				g.CurrentSublevel().tileMap[targetY][targetX] = nil
+			}
 		case "enemy":
 			selectedEnemy.Health -= 2
 			enemyToPlayerVector := VectorNormalise(VectorSubtract(selectedEnemy.position, g.player.position))
 			knockbackVector := VectorScale(enemyToPlayerVector, 0.15)
 			selectedEnemy.Acceleration = knockbackVector
 
+			// kill enemy
 			if selectedEnemy.Health <= 0 {
 				g.CurrentSublevel().Enemies = slices.Delete(g.CurrentSublevel().Enemies, selectedEnemyIndex, selectedEnemyIndex+1)
+				g.CurrentSublevel().inGameItems = append(g.CurrentSublevel().inGameItems,
+					&InGameItem{
+						itemType: &Item{
+							id: "auth_chip",
+						},
+						X: selectedEnemy.position.X,
+						Y: selectedEnemy.position.Y,
+					},
+				)
 
 			}
 		case "escape_ladder":
@@ -344,11 +377,20 @@ func (g *Game) Update() error {
 			}
 
 			g.inventory[g.selectedSlot] = nil
+		case "template_holder":
+			if g.templateItem == nil && g.inventory[g.selectedSlot] != nil && g.inventory[g.selectedSlot].id == "template" {
+				g.templateItem = g.inventory[g.selectedSlot]
+				g.inventory[g.selectedSlot] = nil
+			} else {
+				replaceSlot := GetOrFreeSlotForItemInHotbar(g)
+				g.inventory[replaceSlot] = g.templateItem
+				g.templateItem = nil
+			}
 		}
 	}
 
 	switch clickUseType {
-	case "box":
+	case "box", "wire":
 		g.progressBar = 1 - cursorSelectionTile.Damage
 	case "enemy":
 		g.progressBar = float64(selectedEnemy.Health) / float64(selectedEnemy.MaxHealth)
@@ -501,6 +543,11 @@ func (g *Game) setTileToWall() {
 			Type: "vent_down",
 		}
 	}
+	if ebiten.IsKeyPressed(ebiten.KeyK) {
+		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+			Type: "wire",
+		}
+	}
 	if inpututil.IsKeyJustPressed(ebiten.Key7) {
 		g.CurrentSublevel().conveyorItems = append(g.CurrentSublevel().conveyorItems,
 			&ConveyorItem{
@@ -568,6 +615,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				screen.DrawImage(vent, op)
 			case "vent_down_open":
 				screen.DrawImage(vent_open, op)
+			case "wire":
+				screen.DrawImage(wire, op)
+			case "template_holder":
+				if g.templateItem != nil {
+					op.GeoM.Translate(0, -3)
+					screen.DrawImage(item_template, op)
+				}
 			}
 		}
 	}
@@ -845,6 +899,7 @@ func (g *Game) StartDay() {
 	g.inEndScreen = false
 	g.timeRemaining = 3 * 60 * 60
 	g.day += 1
+	g.Health = g.MaxHealth
 }
 func (g *Game) EndDay() {
 	g.inEndScreen = true
@@ -856,12 +911,12 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeigh
 
 func main() {
 	ebiten.SetWindowSize(640, 480)
-	ebiten.SetWindowTitle("Hello, World!")
+	ebiten.SetWindowTitle("Disconnect.")
 	g := &Game{
 		t:         0,
 		uiContext: superui.NewUIContext(),
 
-		inventory: [5]*Item{
+		inventory: [8]*Item{
 			{id: "string"},
 			{id: "string"},
 			{id: "rod"},
@@ -874,6 +929,11 @@ func main() {
 
 		Health:    20,
 		MaxHealth: 20,
+
+		templateItem: &Item{
+			id:         "template",
+			resultData: "Mind Control",
+		},
 	}
 
 	g.StartDay()

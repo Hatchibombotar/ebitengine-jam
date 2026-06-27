@@ -129,7 +129,7 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 				LayoutDirection: superui.LayoutRow,
 				WidthMode:       superui.SizeFixed,
 				HeightMode:      superui.SizeFixed,
-				Width:           64,
+				Width:           72,
 			},
 			superui.NewConditionalDisplay(
 				&superui.ConditionalDisplayOps{
@@ -141,29 +141,53 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 					&superui.BoxWidgetOps{
 						Gap: 4,
 					},
-					superui.NewTextWidget(
-						&superui.TextWidgetOps{
-							Face: &text.GoTextFace{
-								Source: fontFaceSource,
-								Size:   8,
-							},
-							Color:         color.Black,
-							WrapBehaviour: superui.NoWrap,
-							GetDynamicText: func() string {
-								if g.selectedRecipe == -1 {
-									return "<item>"
-								}
-								selectedRecipeResultItem := recipeData[g.selectedRecipe].result
-								return itemData[selectedRecipeResultItem].name
-							},
-						},
-						"<item>",
-					),
 					superui.NewBoxWidget(
-						&superui.BoxWidgetOps{
-							HeightMode: superui.SizeFixed,
-							Height:     1,
-						},
+						&superui.BoxWidgetOps{},
+						superui.NewTextWidget(
+							&superui.TextWidgetOps{
+								Face: &text.GoTextFace{
+									Source: fontFaceSource,
+									Size:   8,
+								},
+								Color:         color.Black,
+								WrapBehaviour: superui.NoWrap,
+								GetDynamicText: func() string {
+									if g.selectedRecipe == -1 {
+										return "<item>"
+									}
+									selectedRecipeResultItem := recipeData[g.selectedRecipe].result
+									return itemData[selectedRecipeResultItem].name
+								},
+							},
+							"<item>",
+						),
+						superui.NewConditionalDisplay(
+							&superui.ConditionalDisplayOps{
+								ShouldShow: func() bool {
+									return g.selectedRecipe != -1 && recipeData[g.selectedRecipe].resultData != ""
+								},
+							},
+							superui.NewBoxWidget(
+								&superui.BoxWidgetOps{},
+								superui.NewTextWidget(
+									&superui.TextWidgetOps{
+										Face: &text.GoTextFace{
+											Source: fontFaceSource,
+											Size:   8,
+										},
+										Color:         color.RGBA{0, 0, 150, 255},
+										WrapBehaviour: superui.NoWrap,
+										GetDynamicText: func() string {
+											if g.selectedRecipe == -1 {
+												return "<item>"
+											}
+											return "(" + recipeData[g.selectedRecipe].resultData + ")"
+										},
+									},
+									"<item>",
+								),
+							),
+						),
 					),
 					superui.NewTextWidget(
 						&superui.TextWidgetOps{
@@ -171,7 +195,7 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 								Source: fontFaceSource,
 								Size:   8,
 							},
-							Color:         color.Gray{60},
+							Color:         color.Gray{40},
 							WrapBehaviour: superui.NoWrap,
 						},
 						"Ingredients",

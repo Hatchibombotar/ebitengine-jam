@@ -3,8 +3,12 @@ package main
 import "github.com/hajimehoshi/ebiten/v2"
 
 type Item struct {
-	id string
+	id         string
+	resultData string
 }
+
+// template
+// "Reprogrammer", "Hacking USB", "Mind Control"
 
 type ItemData struct {
 	name     string
@@ -23,6 +27,7 @@ func GetHeldItemSprite(i *ItemData) *ebiten.Image {
 type Recipe struct {
 	result      string
 	ingredients []string
+	resultData  string
 }
 
 var itemData map[string]*ItemData
@@ -60,6 +65,18 @@ func init() {
 		"hammer": {
 			name:  "Hammer",
 			image: item_hammer,
+		},
+		"auth_chip": {
+			name:  "Authentication Chip",
+			image: item_auth_chip,
+		},
+		"auth_card": {
+			name:  "Access Card",
+			image: item_auth_card,
+		},
+		"wire_cutters": {
+			name:  "Wire Cutters",
+			image: item_wire_cutters,
 		},
 		"bundle": {
 			name:  "Bundle",
@@ -122,6 +139,26 @@ func init() {
 			name:  "Evil Chip",
 			image: final_chip,
 		},
+		"template_machine": {
+			name:  "Template Writer",
+			image: item_template_machine,
+		},
+		"template": {
+			name:  "Template",
+			image: item_template,
+		},
+		"hacking_usb": {
+			name:  "Hacking USB",
+			image: item_hacking_usb,
+		},
+		"hacking_chip": {
+			name:  "Hacking Chip",
+			image: item_hacking_chip,
+		},
+		"reprogramming_chip": {
+			name:  "Hacking Chip",
+			image: reprogramming_chip,
+		},
 	}
 
 	recipeData = []*Recipe{
@@ -134,24 +171,30 @@ func init() {
 			ingredients: []string{"string", "rod", "metal_sheet"},
 		},
 		{
-			result:      "bundle",
-			ingredients: []string{"string", "bundle"},
+			result:      "wire_cutters",
+			ingredients: []string{"string", "rod", "rod", "metal_sheet"},
 		},
 		{
-			result:      "string",
-			ingredients: []string{"bundle", "bundle"},
+			result:      "auth_card",
+			ingredients: []string{"auth_chip", "metal_sheet"},
 		},
 		{
-			result:      "string",
-			ingredients: []string{"string", "string", "string"},
+			result:      "template_machine",
+			ingredients: []string{"led", "chip", "copper_sheet"},
 		},
 		{
-			result:      "string",
-			ingredients: []string{"string", "string"},
+			result:      "template",
+			resultData:  "Hacking USB",
+			ingredients: []string{"template_machine", "template"},
 		},
 		{
-			result:      "string",
-			ingredients: []string{"string", "holy_grail"},
+			result:      "template",
+			resultData:  "Reprogrammer",
+			ingredients: []string{"template_machine", "template"},
+		},
+		{
+			result:      "hacking_usb",
+			ingredients: []string{"hacking_chip", "metal_sheet"},
 		},
 	}
 }

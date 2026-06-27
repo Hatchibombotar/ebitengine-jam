@@ -7,11 +7,52 @@
 - [ ] Bad USB Template
 - [ ] GOOD Control Board
 
+## Tasks
+*Day 1*
+- Craft a screwdriver
+- Place a box down in Sewer (East 1)
+- Unscrew a vent
+- Steal an item...
+- Craft an axe
+- Escape
+
+*Day 2*
+- Craft wire cutters
+- Break through wire
+- Climb up vent in Sewer (West 2)
+- Kill robot to get `Authorisation Chip`
+- Craft `Authorisation Card` = `Screwdriver` + `Authorisation Chip`
+- Escape
+
+*Day 3*
+- Craft `Templater Machine` = `LED` + `Copper Sheet` + `Chip`
+- Turn power off
+- Reprogram template to be `Template (Hacking USB)`
+- Collect `Hacking USB Chip`
+- Craft `Hacking USB` = `Hacking USB Chip` + `Metal Sheet`
+
+*Day 4*
+- Turn power off
+- Reprogram template to be `Template (Modified Evil Chip)`
+
+*Day 5*
+- Find Storage B
+- Insert `Hacking USB` into main control computer
+- RUN!
+
 ## Polish
 - CRT Filter
+- Hide tooltip text when in UI
 - Area transitions
 - Sounds
 - Water Movement
+- Hints
+- End screen animations
+- Fix going through walls down from Storage B
+- Pause screen
+- Settings on pause screen e.g. crt filter off
+- Particles
+- Music Reccomendations (Molchat Doma) https://www.looperman.com/loops/tags/free-post-punk-loops-samples-sounds-wavs-download
 
 ## Gameplay
 
