@@ -139,8 +139,12 @@ func init() {
 			name:  "Evil Chip",
 			image: final_chip,
 		},
+		"broken_chip": {
+			name:  "Empty Chip",
+			image: broken_chip,
+		},
 		"template_machine": {
-			name:  "Template Writer",
+			name:  "Template Rewriter",
 			image: item_template_machine,
 		},
 		"template": {
@@ -156,7 +160,7 @@ func init() {
 			image: item_hacking_chip,
 		},
 		"reprogramming_chip": {
-			name:  "Hacking Chip",
+			name:  "Reprogramming Chip",
 			image: reprogramming_chip,
 		},
 	}

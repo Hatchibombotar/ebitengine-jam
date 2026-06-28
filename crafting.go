@@ -142,7 +142,9 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 						Gap: 4,
 					},
 					superui.NewBoxWidget(
-						&superui.BoxWidgetOps{},
+						&superui.BoxWidgetOps{
+							Padding: superui.Spacing{Bottom: 1},
+						},
 						superui.NewTextWidget(
 							&superui.TextWidgetOps{
 								Face: &text.GoTextFace{
@@ -209,7 +211,7 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 						func() []superui.GenericWidget {
 							result := []superui.GenericWidget{}
 
-							for ingredientIndex := range 3 {
+							for ingredientIndex := range 6 {
 								ingredientButton := superui.NewConditionalDisplay(
 									&superui.ConditionalDisplayOps{
 										ShouldShow: func() bool {
@@ -346,8 +348,23 @@ func craftRecipe(g *Game, recipeIndex int) {
 	resultKey := recipe.result
 	for i := 0; i < len(g.inventory); i++ {
 		if g.inventory[i] == nil {
-			g.inventory[i] = &Item{id: resultKey}
+			g.inventory[i] = &Item{id: resultKey, resultData: recipe.resultData}
 			break
 		}
+	}
+
+	switch recipe.result {
+	case "screwdriver":
+		CompleteTask(g, 0)
+	case "hammer":
+		CompleteTask(g, 5)
+	case "wire_cutters":
+		CompleteTask(g, 6)
+	case "auth_card":
+		CompleteTask(g, 10)
+	case "template_machine":
+		CompleteTask(g, 12)
+	case "hacking_usb":
+		CompleteTask(g, 15)
 	}
 }

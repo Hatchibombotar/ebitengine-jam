@@ -1,12 +1,7 @@
 ## TODO
-- [ ] Enemies attack you
 - [ ] Box Crafting Recipe
 - [ ] Electrical System
-- [ ] Template Machine
-- [ ] Template Alterer
-- [ ] Bad USB Template
-- [ ] GOOD Control Board
-
+s
 ## Tasks
 *Day 1*
 - Craft a screwdriver
@@ -25,8 +20,8 @@
 - Escape
 
 *Day 3*
-- Craft `Templater Machine` = `LED` + `Copper Sheet` + `Chip`
 - Turn power off
+- Craft `Templater Machine`
 - Reprogram template to be `Template (Hacking USB)`
 - Collect `Hacking USB Chip`
 - Craft `Hacking USB` = `Hacking USB Chip` + `Metal Sheet`
@@ -53,6 +48,13 @@
 - Settings on pause screen e.g. crt filter off
 - Particles
 - Music Reccomendations (Molchat Doma) https://www.looperman.com/loops/tags/free-post-punk-loops-samples-sounds-wavs-download
+- Box crafting recipe
+- fix crash going to the left
+- Remove interaction in menus
+- Tasks show in main hud gui
+- Crafting breaks if you do wire cutters firsrtaa
+- Remove sewer_1
+- Hard to see tools in hotbarw
 
 ## Gameplay
 

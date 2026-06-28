@@ -1,6 +1,9 @@
 package main
 
-import "math"
+import (
+	"math"
+	"math/rand/v2"
+)
 
 type Enemy struct {
 	*Character
@@ -8,9 +11,18 @@ type Enemy struct {
 	Health       int
 	MaxHealth    int
 	Acceleration Vector
+
+	AttackStartT int
+	AttackLength int
+	seed         int
+
+	r float64
 }
 
 func createEnemy1() *Enemy {
+
+	offset := -((rand.Float64()) * 0.8)
+
 	enemy := &Enemy{
 		Health:    20,
 		MaxHealth: 20,
@@ -22,6 +34,7 @@ func createEnemy1() *Enemy {
 			spriteIndex:     1,
 			speedMultiplier: 1,
 		},
+		r: offset,
 	}
 
 	return enemy
@@ -33,6 +46,13 @@ func (e *Enemy) Move(sublevel *Sublevel, targetX, targetY float64) {
 	e.Acceleration.X *= 0.9
 	e.Acceleration.Y *= 0.9
 	speed := 2.0
+
+	sdx := targetX - e.position.X
+	sdy := targetY - e.position.Y
+
+	enemyToTarget := VectorScale(VectorNormalise(VectorSubtract(e.position, Vector{targetX, targetY})), 1.5+e.r)
+	targetX += enemyToTarget.X
+	targetY += enemyToTarget.Y
 
 	// Calculate direction to target
 	dx := targetX - e.position.X
@@ -57,18 +77,18 @@ func (e *Enemy) Move(sublevel *Sublevel, targetX, targetY float64) {
 
 	// Update facing direction
 
-	if dy > 0 {
+	if sdy > 0 {
 		e.facingDirection.X = 0
 		e.facingDirection.Y = 1
-	} else if dy < 0 {
+	} else if sdy < 0 {
 		e.facingDirection.X = 0
 		e.facingDirection.Y = -1
 	}
 
-	if dx > 1 {
+	if sdx > 1 {
 		e.facingDirection.X = 1
 		e.facingDirection.Y = 0
-	} else if dx < -1 {
+	} else if sdx < -1 {
 		e.facingDirection.X = -1
 		e.facingDirection.Y = 0
 	}

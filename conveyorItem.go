@@ -6,31 +6,39 @@ type ConveyorItem struct {
 	itemType *Item
 }
 
-func UpdateConveyors(g *Game) {
-	sublevel := g.CurrentSublevel()
-
+func UpdateConveyors(g *Game, sublevel *Sublevel) {
 	if g.t%10 != 0 {
 		return
 	}
 
 	for i, item := range sublevel.conveyorItems {
-		var nextSpaceOccupied = false
 		tileX, tileY := int(item.X), int(item.Y)
-		for _, otherItem := range sublevel.conveyorItems {
-			if item == otherItem {
-				continue
-			}
-			otherTileX, otherTileY := int(item.X), int(item.Y)
-			if tileX == (otherTileX-1) && tileY == otherTileY {
-				nextSpaceOccupied = true
-			}
-		}
-		if nextSpaceOccupied {
-			continue
-		}
+		// var nextSpaceOccupied = false
+		// for _, otherItem := range sublevel.conveyorItems {
+		// 	if item == otherItem {
+		// 		continue
+		// 	}
+		// 	otherTileX, otherTileY := int(item.X), int(item.Y)
+		// 	if tileX == (otherTileX-1) && tileY == otherTileY {
+		// 		nextSpaceOccupied = true
+		// 	}
+		// }
+		// if nextSpaceOccupied {
+		// 	continue
+		// }
 
 		if tileX < 0 {
-			sublevel.conveyorItems[i] = nil
+			adjacentSpaceId := sublevel.adjacentSpaces.West
+			if adjacentSpaceId != "" {
+				adjacentSpace := g.sublevels[adjacentSpaceId]
+
+				item.X = 19
+
+				adjacentSpace.conveyorItems = append(adjacentSpace.conveyorItems, item)
+				sublevel.conveyorItems[i] = nil
+			} else {
+				sublevel.conveyorItems[i] = nil
+			}
 			continue
 		}
 
@@ -64,7 +72,7 @@ func UpdateConveyors(g *Game) {
 		}
 		result = append(result, item)
 	}
-	g.CurrentSublevel().conveyorItems = result
+	sublevel.conveyorItems = result
 }
 
 var machineTypeRecipes map[string]*Recipe
@@ -98,6 +106,7 @@ func init() {
 // seal_board_in_casing
 // program_board
 // add_component_to_finished_board
+// apply_template_to_board
 
 // returns false if the item should be consumed.
 func HandleProcessor(g *Game, s *Sublevel, item *ConveyorItem, tile *Tile) bool {
@@ -114,6 +123,27 @@ func HandleProcessor(g *Game, s *Sublevel, item *ConveyorItem, tile *Tile) bool 
 
 	if item.itemType.id == output {
 		return true
+	}
+
+	if item.itemType.id == "reprogramming_chip" || item.itemType.id == "hacking_chip" || item.itemType.id == "final_chip" || item.itemType.id == "broken_chip" {
+		return true
+	}
+
+	if item.itemType.resultData != "" {
+		tile.StoredSubtype = item.itemType.resultData
+	}
+
+	if tile.SubType == "seal_board_in_casing" {
+		switch tile.StoredSubtype {
+		case "Reprogrammer":
+			output = "reprogramming_chip"
+		case "Hacking USB":
+			output = "hacking_chip"
+		case "Mind Control":
+			output = "final_chip"
+		default:
+			output = "broken_chip"
+		}
 	}
 
 	if tile.Inventory == nil {
@@ -137,7 +167,16 @@ func HandleProcessor(g *Game, s *Sublevel, item *ConveyorItem, tile *Tile) bool 
 	}
 
 	item.itemType = &Item{
-		id: output,
+		id:         output,
+		resultData: tile.StoredSubtype,
+	}
+
+	if tile.SubType == "apply_template_to_board" {
+		if g.templateItem != nil {
+			item.itemType.resultData = g.templateItem.resultData
+		} else {
+			item.itemType.resultData = "Empty"
+		}
 	}
 	return true
 }

@@ -1,5 +1,11 @@
 package main
 
+import (
+	"math/rand/v2"
+
+	"github.com/hajimehoshi/ebiten/v2/audio"
+)
+
 var spritesheet = LoadImageFromPath("assets/spritesheet.png")
 var test_bg = LoadImageFromPath("assets/backgrounds/test_bg.png")
 var sewer_left = LoadImageFromPath("assets/backgrounds/sewer_left.png")
@@ -34,6 +40,7 @@ var pick_and_place_overlay = LoadImageFromPath("assets/backgrounds/pick_and_plac
 var vents = LoadImageFromPath("assets/backgrounds/vents.png")
 
 var vignette = LoadImageFromPath("assets/vignette.png")
+var vignette_red = LoadImageFromPath("assets/vignette_red.png")
 var vignette_mild = LoadImageFromPath("assets/vignette_mild.png")
 var target = LoadImageFromPath("assets/target.png")
 var target_green = LoadImageFromPath("assets/target_green.png")
@@ -73,6 +80,7 @@ var recipe_slot_active = LoadImageFromPath("assets/ui/recipe_slot_active.png")
 var item_hacking_usb = LoadImageFromPath("assets/items/hacking_usb.png")
 var item_hacking_chip = LoadImageFromPath("assets/conveyor_items/hacking_chip.png")
 var reprogramming_chip = LoadImageFromPath("assets/conveyor_items/reprogramming_chip.png")
+var broken_chip = LoadImageFromPath("assets/conveyor_items/broken_chip.png")
 
 var vent = LoadImageFromPath("assets/vent.png")
 var wire = LoadImageFromPath("assets/wire.png")
@@ -83,6 +91,8 @@ var machine = LoadImageFromPath("assets/machine.png")
 var conveyor_left = LoadImageFromPath("assets/conveyor_left.png")
 var conveyor_left_flipbook = LoadImageFromPath("assets/conveyor_left_flipbook.png")
 var conveyor_down_flipbook = LoadImageFromPath("assets/conveyor_down_flipbook.png")
+
+var zap_flipbook = LoadImageFromPath("assets/zap_flipbook.png")
 
 var circuit_board_finished = LoadImageFromPath("assets/conveyor_items/circuit_board_finished.png")
 var circuit_board_uncut = LoadImageFromPath("assets/conveyor_items/circuit_board_uncut.png")
@@ -101,3 +111,56 @@ var metal_sheet_held = LoadImageFromPath("assets/items/metal_sheet.png")
 var right_wall_conveyor_overlay = LoadImageFromPath("assets/right_wall_conveyor_overlay.png")
 var left_wall_conveyor_overlay = LoadImageFromPath("assets/left_wall_conveyor_overlay.png")
 var top_wall_conveyor_overlay = LoadImageFromPath("assets/top_wall_conveyor_overlay.png")
+
+var shootSound = [][]byte{
+	ReadOggBytesFromPath("assets/sounds/explosionCrunch_000.ogg"),
+	ReadOggBytesFromPath("assets/sounds/explosionCrunch_001.ogg"),
+}
+
+var concreteFootstepSound = [][]byte{
+	ReadOggBytesFromPath("assets/sounds/footstep_concrete_000.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep_concrete_001.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep_concrete_002.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep_concrete_003.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep_concrete_004.ogg"),
+}
+var footstepSounds [][]byte = [][]byte{
+	ReadOggBytesFromPath("assets/sounds/footstep00.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep01.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep02.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep03.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep04.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep05.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep06.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep07.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep08.ogg"),
+	ReadOggBytesFromPath("assets/sounds/footstep09.ogg"),
+}
+var robotDeathSound [][]byte = [][]byte{
+	ReadOggBytesFromPath("assets/sounds/impactPlate_heavy_000.ogg"),
+	ReadOggBytesFromPath("assets/sounds/impactPlate_heavy_001.ogg"),
+	ReadOggBytesFromPath("assets/sounds/impactPlate_heavy_002.ogg"),
+}
+
+var impactPlankSound = [][]byte{
+	ReadOggBytesFromPath("assets/sounds/impactPlank_medium_000.ogg"),
+	ReadOggBytesFromPath("assets/sounds/impactPlank_medium_001.ogg"),
+	ReadOggBytesFromPath("assets/sounds/impactPlank_medium_002.ogg"),
+	ReadOggBytesFromPath("assets/sounds/impactPlank_medium_003.ogg"),
+	ReadOggBytesFromPath("assets/sounds/impactPlank_medium_004.ogg"),
+}
+
+func RandomSound(sounds [][]byte) []byte {
+	L := len(sounds)
+	index := rand.IntN(L)
+
+	return sounds[index]
+}
+
+func PlaySound(context *audio.Context, sound []byte, volume float64) {
+	sePlayer := context.NewPlayerFromBytes(sound)
+	sePlayer.SetVolume(
+		volume * 0.2,
+	)
+	sePlayer.Play()
+}

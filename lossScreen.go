@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"hatchi/disconnect/superui"
 	"image/color"
 
@@ -10,14 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
-func DrawEndScreen(screen *ebiten.Image) {
-}
-
-func UpdateEndScreen() {
-
-}
-
-func CreateEndScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
+func CreateLossScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 	ui := superui.NewUI(uiContext)
 
 	endScreenUI := superui.NewBoxWidget(
@@ -38,11 +30,8 @@ func CreateEndScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 				},
 				Color:         color.White,
 				WrapBehaviour: superui.NoWrap,
-				GetDynamicText: func() string {
-					return fmt.Sprintln("Day", g.day, "Completed")
-				},
 			},
-			"Day complete!",
+			"You died...",
 		),
 
 		superui.NewBoxWidget(
@@ -80,20 +69,8 @@ func CreateEndScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 					},
 					Color:         color.White,
 					WrapBehaviour: superui.WrapText,
-					GetDynamicText: func() string {
-						comment := ""
-						for _, task := range g.completedTasks {
-							if task.comment != "" {
-								comment += task.comment + "\n"
-							}
-						}
-						if comment == "" {
-							comment = "Nice work today, continue our mission tomorrow.\n"
-						}
-						return comment
-					},
 				},
-				"Day complete!",
+				"Sorry to hear of your death but the world still needs saving. Have another go?\n",
 			),
 		),
 
@@ -129,7 +106,7 @@ func CreateEndScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 					IsFocusable: true,
 					OnInputUpdate: func(w superui.GenericWidget, root *superui.UIContainer) {
 						if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.IsHovered(w) {
-							g.StartDay()
+							g.Init()
 						}
 					},
 				},
@@ -142,7 +119,7 @@ func CreateEndScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 						Color:         color.White,
 						WrapBehaviour: superui.NoWrap,
 					},
-					"Next Day",
+					"Start Over",
 				),
 			),
 		),
