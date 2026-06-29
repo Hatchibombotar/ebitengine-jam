@@ -19,7 +19,7 @@ type Enemy struct {
 	r float64
 }
 
-func createEnemy1() *Enemy {
+func createEnemy() *Enemy {
 
 	offset := -((rand.Float64()) * 0.8)
 
@@ -27,7 +27,7 @@ func createEnemy1() *Enemy {
 		Health:    20,
 		MaxHealth: 20,
 		Character: &Character{
-			position:        Vector{5, 5},
+			position:        RandomCorner(),
 			startLerpT:      -1000,
 			facingDirection: Vector{1, 0},
 			walkSpeed:       .01,
@@ -39,6 +39,20 @@ func createEnemy1() *Enemy {
 
 	return enemy
 }
+
+func RandomCorner() Vector {
+	corners := []Vector{
+		{0, 0},
+		{20, 0},
+		{0, 15},
+		{20, 15},
+	}
+
+	index := rand.IntN(len(corners))
+
+	return corners[index]
+}
+
 func (e *Enemy) Move(sublevel *Sublevel, targetX, targetY float64) {
 	e.position.X += e.Acceleration.X
 	e.position.Y += e.Acceleration.Y

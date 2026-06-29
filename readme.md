@@ -11,3 +11,4 @@ Take over the facility from the inside to save the planet.
 - CRT Shader from https://github.com/Zyko0/kage-shaders (License: MIT)
 - Kenney Mini font from https://kenney.nl/assets/kenney-fonts (License: Creative Commons CC0)
 - Some tile assets from https://kenney.nl/assets/tiny-dungeon (License: Creative Commons CC0)
+- Various sound effects from https://kenney.nl/assets/tiny-dungeon (License: Creative Commons CC0)

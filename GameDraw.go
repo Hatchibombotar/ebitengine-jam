@@ -11,13 +11,24 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
-func (g *Game) Draw(screen *ebiten.Image) {
+const TRANISITION_TIME_HORIZ = 20
+const TRANISITION_TIME_VERT = 20
+
+func (g *Game) DrawSpace(screen *ebiten.Image, currentSublevel *Sublevel, drawPlayer bool) {
+	waterT := g.t / 4
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(float64((waterT)%16)-16, 0)
+	screen.DrawImage(water_top, op)
+
+	op = &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-(float64((waterT)%16) + 16), 0)
+	screen.DrawImage(water_bottom, op)
 
 	screen.DrawImage(
-		g.CurrentSublevel().Background, nil,
+		currentSublevel.Background, nil,
 	)
 
-	for y, row := range g.CurrentSublevel().tileMap {
+	for y, row := range currentSublevel.tileMap {
 		for x, tile := range row {
 			if tile == nil {
 				continue
@@ -62,27 +73,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	playerX, playerY := int(g.player.position.X+0.5), int(g.player.position.Y+0.5)
 
-	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
+	tileImOn := currentSublevel.tileMap[playerY][playerX]
 
 	playerIsAccended := TileIsAccended(tileImOn)
+	if drawPlayer {
 
-	if tileImOn != nil && tileImOn.Type == "conveyor_left" && g.t%10 == 0 {
-		g.player.position.X -= CONVEYOR_SPEED / 16.0
-	}
-
-	if tileImOn != nil && tileImOn.Type == "conveyor_down" && g.t%10 == 0 {
-		g.player.position.Y += CONVEYOR_SPEED / 16.0
-	}
-
-	if !g.inExclusiveUIMode {
-		if playerIsAccended {
-			g.player.Draw(screen, g, 0, -6, false)
-		} else {
-			g.player.Draw(screen, g, 0, 0, false)
+		if !g.inExclusiveUIMode {
+			if playerIsAccended {
+				g.player.Draw(screen, g, 0, -6, false)
+			} else {
+				g.player.Draw(screen, g, 0, 0, false)
+			}
 		}
 	}
 
-	for _, inGameItem := range g.CurrentSublevel().inGameItems {
+	for _, inGameItem := range currentSublevel.inGameItems {
 		itemData := itemData[inGameItem.itemType.id]
 
 		playerDistance := VectorMagnitude(
@@ -102,7 +107,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(itemData.image, op)
 	}
 
-	for _, inGameItem := range g.CurrentSublevel().conveyorItems {
+	for _, inGameItem := range currentSublevel.conveyorItems {
 		itemData := itemData[inGameItem.itemType.id]
 		if itemData == nil {
 			continue
@@ -125,7 +130,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		screen.DrawImage(itemData.image, op)
 	}
 
-	for y, row := range g.CurrentSublevel().tileMap {
+	for y, row := range currentSublevel.tileMap {
 		for x, tile := range row {
 			if tile == nil {
 				continue
@@ -141,33 +146,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	if g.CurrentSublevel().Overlay != nil {
-		screen.DrawImage(g.CurrentSublevel().Overlay, nil)
+	if currentSublevel.Overlay != nil {
+		screen.DrawImage(currentSublevel.Overlay, nil)
 	}
 
-	// cursorX, cursorY := ebiten.CursorPosition()
-
-	// debug draw
-	if ebiten.IsKeyPressed(ebiten.KeyF8) {
-		for y, row := range g.CurrentSublevel().tileMap {
-			for x, tile := range row {
-				if tile == nil {
-					continue
-				}
-				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Translate(float64(x*16), float64(y*16))
-
-				switch tile.Type {
-				case "wall":
-					screen.DrawImage(debug_wall, op)
-				}
-			}
-		}
-	}
-
-	if g.CurrentSublevel().adjacentSpaces.Up != "" {
-		aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
-		aboveSpace := g.sublevels[aboveSpaceId]
+	if currentSublevel.adjacentSpaces.Up != "" {
+		aboveSpaceId := currentSublevel.adjacentSpaces.Up
+		aboveSpace := g.spaces[aboveSpaceId]
 
 		standingOnBox := tileImOn != nil && tileImOn.Type == "box"
 
@@ -176,7 +161,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				if tile == nil {
 					continue
 				}
-				currentTile := g.CurrentSublevel().tileMap[y][x]
+				currentTile := currentSublevel.tileMap[y][x]
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Translate(float64(x*16), float64(y*16))
 				op.ColorScale.ScaleAlpha(0.65)
@@ -205,7 +190,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	if !g.inExclusiveUIMode {
-		for _, e := range g.CurrentSublevel().Enemies {
+		for _, e := range currentSublevel.Enemies {
 			e.Draw(screen, g, 0, math.Sin(float64(g.t)*0.1)*1, false)
 
 			isAttacking := e.AttackStartT+e.AttackLength > g.t
@@ -233,6 +218,98 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 
 	}
+}
+
+func (g *Game) Draw(screen *ebiten.Image) {
+	isMoving := g.prevLevelMoveTime+TRANISITION_TIME_HORIZ > g.t
+
+	isMovingHorizonally := false
+	isMovingVertically := false
+	switch g.prevLevelDirection {
+	case "North", "South", "East", "West":
+		isMovingHorizonally = true
+	case "Up", "Down":
+		isMovingVertically = true
+	}
+
+	if isMoving && isMovingHorizonally {
+		p := float64(g.t-g.prevLevelMoveTime) / TRANISITION_TIME_HORIZ
+		oldScreen := ebiten.NewImage(320, 240)
+		newScreen := ebiten.NewImage(320, 240)
+		var oldSpaceId string
+		translationX, translationY := 0.0, 0.0
+		switch g.prevLevelDirection {
+		case "East":
+			oldSpaceId = g.CurrentSublevel().adjacentSpaces.West
+			translationX = -320
+		case "West":
+			oldSpaceId = g.CurrentSublevel().adjacentSpaces.East
+			translationX = 320
+		case "North":
+			oldSpaceId = g.CurrentSublevel().adjacentSpaces.South
+			translationY = 240
+		case "South":
+			oldSpaceId = g.CurrentSublevel().adjacentSpaces.North
+			translationY = -240
+		}
+
+		if oldSpaceId != "" {
+			oldSpace := g.spaces[oldSpaceId]
+
+			g.DrawSpace(oldScreen, oldSpace, false)
+			g.DrawSpace(newScreen, g.CurrentSublevel(), true)
+
+			op1 := &ebiten.DrawImageOptions{}
+			op1.GeoM.Translate(translationX*p, translationY*p)
+			screen.DrawImage(oldScreen, op1)
+		}
+		op2 := &ebiten.DrawImageOptions{}
+		op2.GeoM.Translate((translationX*p)-translationX, (translationY*p)-translationY)
+		screen.DrawImage(newScreen, op2)
+	} else if isMoving && isMovingVertically {
+
+		g.DrawSpace(screen, g.CurrentSublevel(), true)
+		p := float64(g.t-g.prevLevelMoveTime) / TRANISITION_TIME_VERT
+
+		var opacity uint8 = 0
+		opacity = uint8(255.0 * (1 - p))
+
+		if p < 0.3 {
+			opacity = uint8(255.0 * (1 - p))
+		} else {
+			opacity = 0
+		}
+
+		vector.FillRect(screen, 0, 0, 320, 240, color.RGBA{0, 0, 0, opacity}, false)
+
+	} else {
+		g.DrawSpace(screen, g.CurrentSublevel(), true)
+
+	}
+
+	// playerX, playerY := int(g.player.position.X+0.5), int(g.player.position.Y+0.5)
+
+	// tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
+
+	// cursorX, cursorY := ebiten.CursorPosition()
+
+	// debug draw
+	// if ebiten.IsKeyPressed(ebiten.KeyF8) {
+	// 	for y, row := range g.CurrentSublevel().tileMap {
+	// 		for x, tile := range row {
+	// 			if tile == nil {
+	// 				continue
+	// 			}
+	// 			op := &ebiten.DrawImageOptions{}
+	// 			op.GeoM.Translate(float64(x*16), float64(y*16))
+
+	// 			switch tile.Type {
+	// 			case "wall":
+	// 				screen.DrawImage(debug_wall, op)
+	// 			}
+	// 		}
+	// 	}
+	// }
 
 	ops := &ebiten.DrawRectShaderOptions{}
 	ops.Images[0] = screen
@@ -275,6 +352,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 		if g.dayEndedInDeath {
 			g.lossScreen.Draw(screen)
+		}
+		if g.inIntroScreen {
+			g.introScreen.Draw(screen)
 		}
 		if g.inEndScreen {
 			g.endScreenUI.Draw(screen)
@@ -345,7 +425,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		text.Draw(screen, "EMERGENCY LOCKDOWN", smallFontFace, op)
 	}
 
-	if g.selectionName != "" {
+	if g.selectionName != "" && !g.uiContext.IsHovered() {
 		textX, textY := g.targetX*16+2, (g.targetY*16)-8-4
 		textWidth, textHeight := text.Measure(g.selectionName, smallFontFace, 1)
 
@@ -360,6 +440,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		vector.FillRect(screen, float32(textX)-2, float32(textY)-1, float32(textWidth)+4, float32(textHeight)+2, color.RGBA{32, 32, 32, 255}, true)
 
 		text.Draw(screen, g.selectionName, smallFontFace, op)
+	}
+
+	if g.currentTask != nil {
+		op := &text.DrawOptions{}
+		op.GeoM.Translate(52, 4)
+		op.PrimaryAlign = text.AlignStart
+		op.ColorScale.ScaleWithColor(color.White)
+
+		text.Draw(screen, "Current Task:", smallFontFace, op)
+
+		op = &text.DrawOptions{}
+		op.GeoM.Translate(52, 4+8+2)
+		op.PrimaryAlign = text.AlignStart
+		op.ColorScale.ScaleWithColor(color.Gray{180})
+
+		text.Draw(screen, g.currentTask.description, smallFontFace, op)
 	}
 
 	if g.progressBar != -1 {

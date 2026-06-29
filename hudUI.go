@@ -141,6 +141,9 @@ func createHudUi(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 						img := GetHeldItemSprite(itemData[inventorySlot.id])
 						op := &ebiten.DrawImageOptions{}
 						op.GeoM.Translate(float64(widget.GetResultX()+4), float64(widget.GetResultY()+4))
+						if itemData[inventorySlot.id].shiftSlotWhenNotConveyor {
+							op.GeoM.Translate(0, 4)
+						}
 						screen.DrawImage(img, op)
 					}
 				},

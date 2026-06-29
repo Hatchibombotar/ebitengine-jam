@@ -9,7 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 )
 
-func CreateWinScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
+func CreateIntroScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer {
 	ui := superui.NewUI(uiContext)
 
 	endScreenUI := superui.NewBoxWidget(
@@ -31,15 +31,15 @@ func CreateWinScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 				Color:         color.White,
 				WrapBehaviour: superui.NoWrap,
 			},
-			"Our Country has been saved!",
+			"HELLO OPERATIVE!",
 		),
 
-		superui.NewBoxWidget(
-			&superui.BoxWidgetOps{
-				HeightMode: superui.SizeFixed,
-				Height:     28,
-			},
-		),
+		// superui.NewBoxWidget(
+		// 	&superui.BoxWidgetOps{
+		// 		HeightMode: superui.SizeFixed,
+		// 		Height:     28,
+		// 	},
+		// ),
 
 		superui.NewTextWidget(
 			&superui.TextWidgetOps{
@@ -58,7 +58,7 @@ func CreateWinScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 					superui.FillNineSlice(screen, widget, hud_button_nine_slice, 3)
 				},
 				WidthMode: superui.SizeFixed,
-				Width:     148,
+				Width:     200,
 				Padding:   superui.Spacing{Top: 2, Right: 6, Bottom: 0, Left: 6},
 			},
 			superui.NewTextWidget(
@@ -70,7 +70,12 @@ func CreateWinScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 					Color:         color.White,
 					WrapBehaviour: superui.WrapText,
 				},
-				"Great work operative! We've managed to save Our Great Country from the hivemind. Could you help with the rest of the world some other day?\n",
+				`An artificial intelligence, known as "the Hive" is taking over the minds of the people of our great country. They come with a message: "Join Us". We have located the factory responsible for producing chips used in the mind control process.
+
+Your mission: Sabotague the factory.
+
+Be careful of the robot guards. You will be based in a sewer but feel free to come up for some fresh air (and safety) by climbing the ladder.
+`,
 			),
 		),
 
@@ -106,7 +111,9 @@ func CreateWinScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 					IsFocusable: true,
 					OnInputUpdate: func(w superui.GenericWidget, root *superui.UIContainer) {
 						if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.IsHovered(w) {
-							g.Init()
+							g.inExclusiveUIMode = false
+							g.inIntroScreen = false
+							g.StartDay()
 						}
 					},
 				},
@@ -119,7 +126,7 @@ func CreateWinScreen(uiContext *superui.UIContext, g *Game) *superui.UIContainer
 						Color:         color.White,
 						WrapBehaviour: superui.NoWrap,
 					},
-					"Start Over",
+					"Get started.",
 				),
 			),
 		),

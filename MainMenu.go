@@ -67,8 +67,7 @@ func CreateMainMenuUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 				OnInputUpdate: func(w superui.GenericWidget, root *superui.UIContainer) {
 					if inpututil.IsMouseButtonJustReleased(ebiten.MouseButton0) && root.IsHovered(w) {
 						g.inMainMenu = false
-						g.inExclusiveUIMode = false
-						g.StartDay()
+						g.inIntroScreen = true
 					}
 				},
 			},

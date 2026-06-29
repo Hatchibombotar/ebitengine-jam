@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hatchi/disconnect/superui"
 	"log"
+	"math/rand/v2"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
@@ -16,13 +17,14 @@ type Game struct {
 	t      int
 	player *Character
 
-	uiContext  *superui.UIContext
-	hudUI      *superui.UIContainer
-	craftingUI *superui.UIContainer
-	todoUI     *superui.UIContainer
-	mainMenuUi *superui.UIContainer
-	lossScreen *superui.UIContainer
-	winScreen  *superui.UIContainer
+	uiContext   *superui.UIContext
+	hudUI       *superui.UIContainer
+	craftingUI  *superui.UIContainer
+	todoUI      *superui.UIContainer
+	mainMenuUi  *superui.UIContainer
+	lossScreen  *superui.UIContainer
+	winScreen   *superui.UIContainer
+	introScreen *superui.UIContainer
 
 	inventory    [8]*Item
 	selectedSlot int
@@ -35,7 +37,7 @@ type Game struct {
 
 	currentSpaceId string
 
-	sublevels map[string]*Sublevel
+	spaces map[string]*Sublevel
 
 	// Relative to grid
 	targetX, targetY float64
@@ -48,6 +50,7 @@ type Game struct {
 	progressBar float64
 
 	timeRemaining int
+	lockDownStart int
 
 	endScreenUI *superui.UIContainer
 
@@ -55,6 +58,8 @@ type Game struct {
 	startTask      int
 	endTask        int
 	completedTasks []*Task
+
+	currentTask *Task
 
 	Health    int
 	MaxHealth int
@@ -67,6 +72,7 @@ type Game struct {
 	inExclusiveUIMode bool
 
 	dayEndedInDeath bool
+	inIntroScreen   bool
 
 	isElectricityDown            bool
 	electricityDownRemainingTime int
@@ -76,10 +82,25 @@ type Game struct {
 	testIndex int
 
 	audioContext *audio.Context
+
+	prevLevelDirection string
+	prevLevelMoveTime  int
+}
+
+func (g *Game) HasItem(s string) bool {
+	for _, item := range g.inventory {
+		if item == nil {
+			continue
+		}
+		if item.id == s {
+			return true
+		}
+	}
+	return false
 }
 
 func (g *Game) CurrentSublevel() *Sublevel {
-	sublevel, ok := g.sublevels[g.currentSpaceId]
+	sublevel, ok := g.spaces[g.currentSpaceId]
 	if !ok {
 		panic(fmt.Sprint("sublevel doesn't exist.", g.currentSpaceId))
 	}
@@ -129,12 +150,16 @@ func (g *Game) handlePlayerMovement() {
 		if g.CurrentSublevel().adjacentSpaces.West != "" {
 			g.player.position.X = 19
 			g.currentSpaceId = g.CurrentSublevel().adjacentSpaces.West
+			g.prevLevelDirection = "West"
+			g.prevLevelMoveTime = g.t
 		}
 		return
 	} else if adjacentVectorX.X > 19 {
 		if g.CurrentSublevel().adjacentSpaces.East != "" {
 			g.player.position.X = 0
 			g.currentSpaceId = g.CurrentSublevel().adjacentSpaces.East
+			g.prevLevelDirection = "East"
+			g.prevLevelMoveTime = g.t
 		}
 		return
 	}
@@ -144,20 +169,24 @@ func (g *Game) handlePlayerMovement() {
 		if g.CurrentSublevel().adjacentSpaces.North != "" {
 			g.player.position.Y = 14
 			g.currentSpaceId = g.CurrentSublevel().adjacentSpaces.North
+			g.prevLevelDirection = "North"
+			g.prevLevelMoveTime = g.t
 		}
 		return
 	} else if adjacentVectorY.Y > 14 {
 		if g.CurrentSublevel().adjacentSpaces.South != "" {
 			g.player.position.Y = 0
 			g.currentSpaceId = g.CurrentSublevel().adjacentSpaces.South
+			g.prevLevelDirection = "South"
+			g.prevLevelMoveTime = g.t
 		}
 		return
 	}
 
-	if TileIsSolid(g.CurrentSublevel().tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)]) {
+	if TileIsSolid(g, g.CurrentSublevel().tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)]) {
 		xSpeed = 0
 	}
-	if TileIsSolid(g.CurrentSublevel().tileMap[int(adjacentVectorY.Y)][int(adjacentVectorY.X)]) {
+	if TileIsSolid(g, g.CurrentSublevel().tileMap[int(adjacentVectorY.Y)][int(adjacentVectorY.X)]) {
 		ySpeed = 0
 	}
 
@@ -190,6 +219,9 @@ func (g *Game) handlePlayerMovement() {
 
 	g.player.position.X += xSpeed
 	g.player.position.Y += ySpeed
+	if g.player.position.X < 0 && g.CurrentSublevel().adjacentSpaces.West == "" {
+		g.player.position.X = 0
+	}
 }
 
 func (g *Game) setTileToWall() {
@@ -256,16 +288,28 @@ func (g *Game) StartDay() {
 
 	UpdateTaskRange(g)
 
-	g.t = 0
-
 	g.completedTasks = []*Task{}
+
+	for _, space := range g.spaces {
+		space.Enemies = []*Enemy{}
+		if !space.isSafeArea {
+			if rand.IntN(2) == 0 {
+				continue
+			}
+			space.Enemies = append(space.Enemies,
+				createEnemy(),
+			)
+		}
+	}
+
+	g.spaces["electrical_corridor"].Enemies = append(g.spaces["electrical_corridor"].Enemies, createEnemy(), createEnemy())
 
 }
 
 func PreUpdateConveyors(g *Game) {
 	for range 60 * 60 {
 		g.t += 1
-		for _, space := range g.sublevels {
+		for _, space := range g.spaces {
 
 			if space.Spawners != nil {
 				for _, spawner := range space.Spawners {
@@ -323,7 +367,7 @@ func (g *Game) Init() {
 	g.inMainMenu = true
 	g.inExclusiveUIMode = true
 	g.dayEndedInDeath = false
-	g.sublevels = createSublevels()
+	g.spaces = createSublevels()
 
 	g.tasks = getTaskList()
 
@@ -342,6 +386,7 @@ func (g *Game) Init() {
 	g.mainMenuUi = CreateMainMenuUi(g.uiContext, g)
 	g.lossScreen = CreateLossScreen(g.uiContext, g)
 	g.winScreen = CreateWinScreen(g.uiContext, g)
+	g.introScreen = CreateIntroScreen(g.uiContext, g)
 
 	p := &Character{
 		position:        Vector{14, 6.5},
@@ -353,6 +398,9 @@ func (g *Game) Init() {
 	g.player = p
 
 	g.day = 0
+
+	g.prevLevelMoveTime = 0
+	g.prevLevelDirection = ""
 
 	PreUpdateConveyors(g)
 }

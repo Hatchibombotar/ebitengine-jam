@@ -1,7 +1,3 @@
-## TODO
-- [ ] Box Crafting Recipe
-- [ ] Electrical System
-s
 ## Tasks
 *Day 1*
 - Craft a screwdriver
@@ -36,25 +32,20 @@ s
 - RUN!
 
 ## Polish
-- CRT Filter
-- Hide tooltip text when in UI
-- Area transitions
-- Sounds
-- Water Movement
+- Fix conveyor items in hotbar (just shift sprite?)
+
+## Maybe Add/Fix
+- Box crafting recipe
+- Robots attacks stay if you leave mid way
+- Hard to see tools in hotbar
+
+## Not Adding
 - Hints
 - End screen animations
-- Fix going through walls down from Storage B
+- Music Recomendations (Molchat Doma) https://www.looperman.com/loops/tags/free-post-punk-loops-samples-sounds-wavs-download
+- Particles
 - Pause screen
 - Settings on pause screen e.g. crt filter off
-- Particles
-- Music Reccomendations (Molchat Doma) https://www.looperman.com/loops/tags/free-post-punk-loops-samples-sounds-wavs-download
-- Box crafting recipe
-- fix crash going to the left
-- Remove interaction in menus
-- Tasks show in main hud gui
-- Crafting breaks if you do wire cutters firsrtaa
-- Remove sewer_1
-- Hard to see tools in hotbarw
 
 ## Gameplay
 

@@ -14,6 +14,8 @@ type ItemData struct {
 	name     string
 	image    *ebiten.Image
 	heldItem *ebiten.Image
+
+	shiftSlotWhenNotConveyor bool
 }
 
 func GetHeldItemSprite(i *ItemData) *ebiten.Image {
@@ -78,21 +80,14 @@ func init() {
 			name:  "Wire Cutters",
 			image: item_wire_cutters,
 		},
-		"bundle": {
-			name:  "Bundle",
-			image: item_bundle,
-		},
 		"box": {
 			name:  "Box",
 			image: item_box,
 		},
-		"holy_grail": {
-			name:  "Holy Grain",
-			image: target,
-		},
 		"circuit_board_finished": {
-			name:  "Circuit Board",
-			image: circuit_board_finished,
+			name:                     "Circuit Board",
+			image:                    circuit_board_finished,
+			shiftSlotWhenNotConveyor: true,
 		},
 		"circuit_board_programmed": {
 			name:  "Circuit Board (programmed)",

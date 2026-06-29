@@ -23,9 +23,9 @@ func CompleteTask(g *Game, task int) {
 
 	switch task {
 	case 3:
-		e1 := createEnemy1()
+		e1 := createEnemy()
 		e1.position = Vector{19, 14}
-		e2 := createEnemy1()
+		e2 := createEnemy()
 		e2.position = Vector{1, 14}
 		g.CurrentSublevel().Enemies = append(g.CurrentSublevel().Enemies, e1, e2)
 	}
@@ -36,6 +36,7 @@ func UpdateTaskRange(g *Game) {
 		if task.StartingTask {
 			startI = i
 		}
+		g.currentTask = task
 		if !task.complete {
 			break
 		}
@@ -86,19 +87,19 @@ func getTaskList() []*Task {
 			complete:    false,
 		},
 		{
-			description: "Escape to heal yourself",
+			description: "Escape!",
 			complete:    false,
 			comment:     "That was a close call! Craft a hammer to defend yourself from the robots tomorrow!",
 			resultFunc: func(g *Game) {
-				g.sublevels["sewer_entrance"].inGameItems = append(
-					g.sublevels["sewer_entrance"].inGameItems,
+				g.spaces["sewer_entrance"].inGameItems = append(
+					g.spaces["sewer_entrance"].inGameItems,
 					&InGameItem{itemType: &Item{id: "string"}, X: 13, Y: 1},
 					&InGameItem{itemType: &Item{id: "rod"}, X: 9, Y: 11},
 					&InGameItem{itemType: &Item{id: "string"}, X: 13, Y: 11},
 					&InGameItem{itemType: &Item{id: "string"}, X: 6, Y: 2},
 				)
-				g.sublevels["sewer_5"].inGameItems = append(
-					g.sublevels["sewer_5"].inGameItems,
+				g.spaces["sewer_5"].inGameItems = append(
+					g.spaces["sewer_5"].inGameItems,
 					&InGameItem{itemType: &Item{id: "rod"}, X: 12, Y: 7},
 					&InGameItem{itemType: &Item{id: "rod"}, X: 13, Y: 12},
 				)
@@ -119,11 +120,11 @@ func getTaskList() []*Task {
 			complete:    false,
 		},
 		{
-			description: "Climb up vent in Sewer (West 2)",
+			description: "Climb up vent in Sewer (West 1)",
 			complete:    false,
 		},
 		{
-			description: "Kill robot to get Authorisation Chip",
+			description: "Kill robot to get Authentication Chip",
 			complete:    false,
 		},
 		{
@@ -158,6 +159,7 @@ func getTaskList() []*Task {
 			description:  "Put Reprogrammer Template in the Template Machine",
 			complete:     false,
 			StartingTask: true,
+			comment:      "Almost there! We just need to take control of the central console!",
 		},
 		{
 			description: "Climb up vent in Sewer (North 2)",

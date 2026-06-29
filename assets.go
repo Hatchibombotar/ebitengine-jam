@@ -21,7 +21,11 @@ var control_room_overlay = LoadImageFromPath("assets/backgrounds/control_room_ov
 var storage_b = LoadImageFromPath("assets/backgrounds/storage_b.png")
 var storage_b_overlay = LoadImageFromPath("assets/backgrounds/storage_b_overlay.png")
 
+var water_top = LoadImageFromPath("assets/backgrounds/water_top.png")
+var water_bottom = LoadImageFromPath("assets/backgrounds/water_bottom.png")
+
 var electrical_corridor = LoadImageFromPath("assets/backgrounds/electrical_corridor.png")
+var electrical_corridor_overlay = LoadImageFromPath("assets/backgrounds/electrical_corridor_overlay.png")
 var electrical = LoadImageFromPath("assets/backgrounds/electrical.png")
 var electrical_overlay = LoadImageFromPath("assets/backgrounds/electrical_overlay.png")
 
@@ -149,6 +153,8 @@ var impactPlankSound = [][]byte{
 	ReadOggBytesFromPath("assets/sounds/impactPlank_medium_003.ogg"),
 	ReadOggBytesFromPath("assets/sounds/impactPlank_medium_004.ogg"),
 }
+
+var lockdownSound = ReadOggBytesFromPath("assets/sounds/forceField_000.ogg")
 
 func RandomSound(sounds [][]byte) []byte {
 	L := len(sounds)

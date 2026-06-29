@@ -9,6 +9,22 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
+func StartLockdown(g *Game) {
+	if g.isLockDown {
+		return
+	}
+	g.isElectricityDown = false
+	g.isLockDown = true
+
+	PlaySound(
+		g.audioContext,
+		lockdownSound,
+		2,
+	)
+
+	g.CurrentSublevel().Enemies = append(g.CurrentSublevel().Enemies, createEnemy(), createEnemy())
+}
+
 func (g *Game) Update() error {
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyN) {
@@ -26,14 +42,17 @@ func (g *Game) Update() error {
 	if g.inCraftingUi {
 		g.craftingUI.Update()
 	}
-	if g.inMainMenu {
-		g.mainMenuUi.Update()
-	}
 	if g.inTodoUI {
 		g.todoUI.Update()
 	}
 	if g.dayEndedInDeath {
 		g.lossScreen.Update()
+	}
+	if g.inIntroScreen {
+		g.introScreen.Update()
+	}
+	if g.inMainMenu {
+		g.mainMenuUi.Update()
 	}
 	if g.inWinScreen {
 		g.winScreen.Update()
@@ -52,11 +71,31 @@ func (g *Game) Update() error {
 	}
 
 	if g.isElectricityDown && g.electricityDownRemainingTime == 0 {
-		g.isElectricityDown = false
-		g.isLockDown = true
+		StartLockdown(g)
 	}
 
-	for _, space := range g.sublevels {
+	if inpututil.IsKeyJustPressed(ebiten.KeyB) {
+		StartLockdown(g)
+	}
+
+	if g.isLockDown && g.t%60 == 0 {
+		PlaySound(
+			g.audioContext,
+			lockdownSound,
+			2,
+		)
+	}
+	if g.isLockDown && g.t%60 == 0 {
+		if g.CurrentSublevel().isSafeArea && len(g.CurrentSublevel().Enemies) < 2 {
+			g.CurrentSublevel().Enemies = append(g.CurrentSublevel().Enemies, createEnemy())
+		} else if len(g.CurrentSublevel().Enemies) < 4 {
+			g.CurrentSublevel().Enemies = append(g.CurrentSublevel().Enemies, createEnemy())
+		}
+	} else if !g.isElectricityDown && !g.CurrentSublevel().isSafeArea && len(g.CurrentSublevel().Enemies) < 1 && g.t%(60*60*2) == 0 {
+		g.CurrentSublevel().Enemies = append(g.CurrentSublevel().Enemies, createEnemy())
+	}
+
+	for _, space := range g.spaces {
 		if space.Spawners != nil {
 			for _, spawner := range space.Spawners {
 				if g.t%(CONVEYOR_SPEED*16*4) != 0 {
@@ -98,6 +137,49 @@ func (g *Game) Update() error {
 		}
 	}
 
+	cursorX, cursorY := ebiten.CursorPosition()
+	targetX, targetY := cursorX/16, cursorY/16
+	gridCursorX, gridCursorY := float64(cursorX)/16, float64(cursorY)/16
+
+	playerX, playerY := int(g.player.position.X+0.5), int(g.player.position.Y+0.5)
+
+	cursorSelectionTile := GetTileFromTileMap(g.CurrentSublevel().tileMap, targetX, targetY)
+	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
+
+	if tileImOn != nil && tileImOn.Type == "conveyor_left" && g.t%10 == 0 {
+		g.player.position.X -= CONVEYOR_SPEED / 16.0
+	}
+
+	if tileImOn != nil && tileImOn.Type == "conveyor_down" && g.t%10 == 0 {
+		g.player.position.Y += CONVEYOR_SPEED / 16.0
+	}
+
+	if g.CurrentSublevel().HasFlowingWater && g.t%4 == 0 {
+		xSpeed := 0.0
+		if g.player.position.Y >= 3 && g.player.position.Y <= 5 {
+			xSpeed = +1.0 / 16
+		}
+
+		if g.player.position.Y >= 8 && g.player.position.Y <= 10 {
+			xSpeed = -1.0 / 16
+		}
+		xOffset := 0.0
+		if xSpeed > 0 {
+			xOffset = 4.0 / 16
+		} else if xSpeed < 0 {
+			xOffset = -4.0 / 16
+		}
+
+		playerCenter := VectorAdd(g.player.position, Vector{.5, .5})
+		adjacentVectorX := VectorFloor(VectorAdd(playerCenter, Vector{X: xSpeed + xOffset, Y: 0}))
+		if adjacentVectorX.X >= 0 && adjacentVectorX.X <= 19 {
+			tileIWillBeOn := g.CurrentSublevel().tileMap[int(adjacentVectorX.Y)][int(adjacentVectorX.X)]
+			if !TileIsSolid(g, tileIWillBeOn) {
+				g.player.position.X += xSpeed
+			}
+		}
+	}
+
 	g.handlePlayerMovement()
 
 	g.setTileToWall()
@@ -114,18 +196,9 @@ func (g *Game) Update() error {
 		g.selectedSlot = 4
 	}
 
-	cursorX, cursorY := ebiten.CursorPosition()
-	targetX, targetY := cursorX/16, cursorY/16
-	gridCursorX, gridCursorY := float64(cursorX)/16, float64(cursorY)/16
-
 	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
 		fmt.Println(int(gridCursorX), ", ", int(gridCursorY))
 	}
-
-	playerX, playerY := int(g.player.position.X+0.5), int(g.player.position.Y+0.5)
-
-	cursorSelectionTile := GetTileFromTileMap(g.CurrentSublevel().tileMap, targetX, targetY)
-	tileImOn := g.CurrentSublevel().tileMap[playerY][playerX]
 
 	heldItem := g.inventory[g.selectedSlot]
 
@@ -209,7 +282,7 @@ func (g *Game) Update() error {
 	}
 	if tileImOn != nil && tileImOn.Type == "box" && g.CurrentSublevel().adjacentSpaces.Up != "" {
 		aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
-		aboveSpace := g.sublevels[aboveSpaceId]
+		aboveSpace := g.spaces[aboveSpaceId]
 
 		tileAbove := GetTileFromTileMap(aboveSpace.tileMap, targetX, targetY)
 		if tileAbove != nil {
@@ -277,7 +350,7 @@ func (g *Game) Update() error {
 
 	switch clickUseType {
 	case "vent_down", "vent_down_open", "vent_up", "vent_up_open":
-		g.selectionInRange = distanceBetweenPlayerAndTarget < 1
+		g.selectionInRange = distanceBetweenPlayerAndTarget < 0.8
 	case "escape_ladder":
 		g.selectionInRange = distanceBetweenPlayerAndTarget < 2
 	default:
@@ -294,8 +367,10 @@ func (g *Game) Update() error {
 			g.selectionInRange = false
 		}
 	case "enemy":
-		if heldItem == nil || heldItem.id != "hammer" {
+		if !g.HasItem("hammer") {
 			g.selectionInRange = false
+		}
+		if heldItem == nil || heldItem.id != "hammer" {
 		}
 	case "central_console":
 		if heldItem == nil || heldItem.id != "hacking_usb" {
@@ -319,18 +394,26 @@ func (g *Game) Update() error {
 			CompleteTask(g, 3)
 
 			switch selectedConveyorItem.itemType.id {
-			case "auth_chip":
-				CompleteTask(g, 9)
 			case "hacking_chip":
 				CompleteTask(g, 14)
+			}
+			if !g.isElectricityDown {
+				StartLockdown(g)
 			}
 		case "item":
 			replaceSlot := GetOrFreeSlotForItemInHotbar(g)
 			g.inventory[replaceSlot] = selectedItem.itemType
 			g.CurrentSublevel().inGameItems = slices.Delete(g.CurrentSublevel().inGameItems, selectedItemIndex, selectedItemIndex+1)
+
+			switch selectedItem.itemType.id {
+			case "auth_chip":
+				CompleteTask(g, 9)
+			}
 		case "vent_down_open":
 			if g.CurrentSublevel().adjacentSpaces.Down != "" {
 				g.currentSpaceId = g.CurrentSublevel().adjacentSpaces.Down
+				g.prevLevelDirection = "Down"
+				g.prevLevelMoveTime = g.t
 			}
 		case "vent_down":
 			g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
@@ -338,7 +421,7 @@ func (g *Game) Update() error {
 			}
 		case "vent_up":
 			aboveSpaceId := g.CurrentSublevel().adjacentSpaces.Up
-			aboveSpace := g.sublevels[aboveSpaceId]
+			aboveSpace := g.spaces[aboveSpaceId]
 
 			aboveSpace.tileMap[targetY][targetX] = &Tile{
 				Type: "vent_down_open",
@@ -355,6 +438,8 @@ func (g *Game) Update() error {
 				CompleteTask(g, 17)
 			}
 			g.currentSpaceId = g.CurrentSublevel().adjacentSpaces.Up
+			g.prevLevelDirection = "Up"
+			g.prevLevelMoveTime = g.t
 		case "box":
 			cursorSelectionTile.Damage += 0.2
 
@@ -374,18 +459,17 @@ func (g *Game) Update() error {
 			}
 		case "enemy":
 			kbScale := 0.05
-			if heldItem != nil && heldItem.id == "hammer" {
-				selectedEnemy.Health -= 2
-				kbScale = 0.2
+			if g.HasItem("hammer") {
+				selectedEnemy.Health -= 3
+				kbScale = 0.24
 
 				PlaySound(
 					g.audioContext,
 					RandomSound(impactPlankSound),
 					1,
 				)
-			} else {
-
 			}
+
 			enemyToPlayerVector := VectorNormalise(VectorSubtract(selectedEnemy.position, g.player.position))
 			knockbackVector := VectorScale(enemyToPlayerVector, kbScale)
 			selectedEnemy.Acceleration = knockbackVector
@@ -393,15 +477,28 @@ func (g *Game) Update() error {
 			// kill enemy
 			if selectedEnemy.Health <= 0 {
 				g.CurrentSublevel().Enemies = slices.Delete(g.CurrentSublevel().Enemies, selectedEnemyIndex, selectedEnemyIndex+1)
-				g.CurrentSublevel().inGameItems = append(g.CurrentSublevel().inGameItems,
-					&InGameItem{
-						itemType: &Item{
-							id: "auth_chip",
+
+				hasAuth := false
+				for _, item := range g.inventory {
+					if item == nil {
+						continue
+					}
+					if item.id == "auth_card" {
+						hasAuth = true
+						break
+					}
+				}
+				if !hasAuth {
+					g.CurrentSublevel().inGameItems = append(g.CurrentSublevel().inGameItems,
+						&InGameItem{
+							itemType: &Item{
+								id: "auth_chip",
+							},
+							X: selectedEnemy.position.X,
+							Y: selectedEnemy.position.Y,
 						},
-						X: selectedEnemy.position.X,
-						Y: selectedEnemy.position.Y,
-					},
-				)
+					)
+				}
 
 				PlaySound(
 					g.audioContext,
@@ -414,6 +511,7 @@ func (g *Game) Update() error {
 			if g.tasks[16].complete && g.tasks[18].complete {
 				g.inWinScreen = true
 				g.inExclusiveUIMode = true
+				g.isLockDown = false
 			} else {
 				g.EndDay()
 				CompleteTask(g, 4)
@@ -447,8 +545,14 @@ func (g *Game) Update() error {
 				g.inventory[replaceSlot] = g.templateItem
 				g.templateItem = nil
 			}
+
+			if !g.isElectricityDown {
+				StartLockdown(g)
+			}
 		case "central_console":
 			CompleteTask(g, 18)
+			g.inventory[g.selectedSlot] = nil
+			StartLockdown(g)
 		case "electrical_switch":
 			g.isElectricityDown = true
 			g.electricityDownRemainingTime = 60 * 45
@@ -487,6 +591,7 @@ func (g *Game) Update() error {
 
 				if g.Health <= 0 {
 					g.dayEndedInDeath = true
+					g.isLockDown = false
 					g.inExclusiveUIMode = true
 				}
 			}

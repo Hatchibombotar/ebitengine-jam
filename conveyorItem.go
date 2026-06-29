@@ -30,7 +30,7 @@ func UpdateConveyors(g *Game, sublevel *Sublevel) {
 		if tileX < 0 {
 			adjacentSpaceId := sublevel.adjacentSpaces.West
 			if adjacentSpaceId != "" {
-				adjacentSpace := g.sublevels[adjacentSpaceId]
+				adjacentSpace := g.spaces[adjacentSpaceId]
 
 				item.X = 19
 
