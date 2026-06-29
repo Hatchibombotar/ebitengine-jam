@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 	"slices"
 
@@ -74,9 +73,9 @@ func (g *Game) Update() error {
 		StartLockdown(g)
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyB) {
-		StartLockdown(g)
-	}
+	// if inpututil.IsKeyJustPressed(ebiten.KeyB) {
+	// 	StartLockdown(g)
+	// }
 
 	if g.isLockDown && g.t%60 == 0 {
 		PlaySound(
@@ -182,7 +181,7 @@ func (g *Game) Update() error {
 
 	g.handlePlayerMovement()
 
-	g.setTileToWall()
+	// g.setTileToWall()
 
 	if ebiten.IsKeyPressed(ebiten.Key1) {
 		g.selectedSlot = 0
@@ -196,9 +195,9 @@ func (g *Game) Update() error {
 		g.selectedSlot = 4
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
-		fmt.Println(int(gridCursorX), ", ", int(gridCursorY))
-	}
+	// if inpututil.IsKeyJustPressed(ebiten.KeyTab) {
+	// 	fmt.Println(int(gridCursorX), ", ", int(gridCursorY))
+	// }
 
 	heldItem := g.inventory[g.selectedSlot]
 
@@ -555,7 +554,7 @@ func (g *Game) Update() error {
 			StartLockdown(g)
 		case "electrical_switch":
 			g.isElectricityDown = true
-			g.electricityDownRemainingTime = 60 * 45
+			g.electricityDownRemainingTime = 60 * 61
 			CompleteTask(g, 11)
 		}
 	}
@@ -573,9 +572,9 @@ func (g *Game) Update() error {
 		dropItemSlot(g, g.selectedSlot)
 	}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyF9) {
-		PrintSublevel(g)
-	}
+	// if inpututil.IsKeyJustPressed(ebiten.KeyF9) {
+	// 	PrintSublevel(g)
+	// }
 
 	// UpdateConveyors(g, g.CurrentSublevel())
 

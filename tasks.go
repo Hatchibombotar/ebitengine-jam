@@ -147,7 +147,7 @@ func getTaskList() []*Task {
 			complete:    false,
 		},
 		{
-			description: "Collect Hacking USB chip from production line",
+			description: "Collect Hacking USB chip from the Final Assembly",
 			complete:    false,
 		},
 		{

@@ -215,6 +215,9 @@ func createCraftingUi(uiContext *superui.UIContext, g *Game) *superui.UIContaine
 								ingredientButton := superui.NewConditionalDisplay(
 									&superui.ConditionalDisplayOps{
 										ShouldShow: func() bool {
+											if g.selectedRecipe < 0 {
+												return false
+											}
 											ingredients := recipeData[g.selectedRecipe].ingredients
 											return len(ingredients) > ingredientIndex
 										},

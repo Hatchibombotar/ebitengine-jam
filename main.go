@@ -8,7 +8,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 const CONVEYOR_SPEED = 2.0
@@ -224,55 +223,55 @@ func (g *Game) handlePlayerMovement() {
 	}
 }
 
-func (g *Game) setTileToWall() {
-	cursorX, cursorY := ebiten.CursorPosition()
-	targetX, targetY := (cursorX / 16), (cursorY / 16)
+// func (g *Game) setTileToWall() {
+// 	cursorX, cursorY := ebiten.CursorPosition()
+// 	targetX, targetY := (cursorX / 16), (cursorY / 16)
 
-	if ebiten.IsKeyPressed(ebiten.KeyL) {
-		g.CurrentSublevel().tileMap[targetY][targetX] = nil
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyP) {
-		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
-			Type: "wall",
-		}
-	}
-	if ebiten.IsKeyPressed(ebiten.Key0) {
-		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
-			Type: "conveyor_left",
-		}
-	}
-	if ebiten.IsKeyPressed(ebiten.Key9) {
-		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
-			Type: "conveyor_down",
-		}
-	}
-	if ebiten.IsKeyPressed(ebiten.Key8) {
-		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
-			Type: "machine",
-		}
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyV) {
-		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
-			Type: "vent_down",
-		}
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyK) {
-		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
-			Type: "wire",
-		}
-	}
-	if inpututil.IsKeyJustPressed(ebiten.Key7) {
-		g.CurrentSublevel().conveyorItems = append(g.CurrentSublevel().conveyorItems,
-			&ConveyorItem{
-				X: float64(cursorX / 16),
-				Y: float64(cursorY / 16),
-				itemType: &Item{
-					id: "hacking_usb",
-				},
-			},
-		)
-	}
-}
+// 	if ebiten.IsKeyPressed(ebiten.KeyL) {
+// 		g.CurrentSublevel().tileMap[targetY][targetX] = nil
+// 	}
+// 	if ebiten.IsKeyPressed(ebiten.KeyP) {
+// 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+// 			Type: "wall",
+// 		}
+// 	}
+// 	if ebiten.IsKeyPressed(ebiten.Key0) {
+// 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+// 			Type: "conveyor_left",
+// 		}
+// 	}
+// 	if ebiten.IsKeyPressed(ebiten.Key9) {
+// 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+// 			Type: "conveyor_down",
+// 		}
+// 	}
+// 	if ebiten.IsKeyPressed(ebiten.Key8) {
+// 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+// 			Type: "machine",
+// 		}
+// 	}
+// 	if ebiten.IsKeyPressed(ebiten.KeyV) {
+// 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+// 			Type: "vent_down",
+// 		}
+// 	}
+// 	if ebiten.IsKeyPressed(ebiten.KeyK) {
+// 		g.CurrentSublevel().tileMap[targetY][targetX] = &Tile{
+// 			Type: "wire",
+// 		}
+// 	}
+// 	if inpututil.IsKeyJustPressed(ebiten.Key7) {
+// 		g.CurrentSublevel().conveyorItems = append(g.CurrentSublevel().conveyorItems,
+// 			&ConveyorItem{
+// 				X: float64(cursorX / 16),
+// 				Y: float64(cursorY / 16),
+// 				itemType: &Item{
+// 					id: "hacking_usb",
+// 				},
+// 			},
+// 		)
+// 	}
+// }
 
 func (g *Game) StartDay() {
 	g.inExclusiveUIMode = false
